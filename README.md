@@ -97,7 +97,29 @@ README.md
 https://github.com/user-attachments/assets/03c58044-3934-4cdb-bfd8-762c81a9f5d3
 
 
+## Usage example
 
+The main file
+
+```python
+import uasyncio as asyncio
+
+from assistant.app.application import (
+    AssistantApplication
+)
+
+
+async def main():
+
+    app = AssistantApplication()
+
+    await app.run()
+
+
+if __name__ == "__main__":
+
+    asyncio.run(main())
+```
 
 
 
