@@ -121,6 +121,8 @@ class AssistantApplication:
                 await self.chat.ask(
                     question
                 )
+                
+                self.audio.is_sound_detected = False
 
                 gc.collect()
 

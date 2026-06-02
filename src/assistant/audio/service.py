@@ -2,6 +2,7 @@ import gc
 import re
 import time
 import uasyncio as asyncio
+import utime
 
 from machine import Pin
 
@@ -37,6 +38,11 @@ class AudioService:
         self.record_seconds = record_seconds
         self.output_file = output_file
         self.mic_ibuf = mic_ibuf
+
+        self.is_sound_detected = False
+
+        # CORREÇÃO:
+        self._last_sound_time = utime.ticks_ms()
 
         self.button = Pin(
             button_pin,
@@ -75,27 +81,52 @@ class AudioService:
         gc.collect()
 
     async def is_above_background(self):
-        print("[audio] Checking if above background noise...")
 
         gc.collect()
 
         self._ensure_mic()
+
         mic = self.mic
 
         if mic is None:
             raise Exception("Microphone unavailable")
-        print("[audio] Reading PCM16...")
-        mic.read_pcm16()
-        is_above = mic.is_above_background
-        print("[audio] is_above_background=", is_above)
 
-        return is_above
+        mic.read_pcm16(record_mode=False)
+
+        is_above = mic.is_above_background
+
+        current_time = utime.ticks_ms()
+
+        if is_above:
+
+            self.is_sound_detected = True
+            self._last_sound_time = current_time
+
+        else:
+
+            elapsed = utime.ticks_diff(
+                current_time,
+                self._last_sound_time
+            )
+
+            if elapsed > 500:
+                self.is_sound_detected = False
+
+        print(
+            "[audio] is_above_background =",
+            self.is_sound_detected
+        )
+
+        await asyncio.sleep(0)
+
+        return self.is_sound_detected
 
     def record_wav(self):
 
         gc.collect()
 
         self._ensure_mic()
+
         mic = self.mic
 
         if mic is None:
@@ -105,10 +136,7 @@ class AudioService:
 
         total_pcm_bytes = 0
 
-        with open(
-            self.output_file,
-            "wb"
-        ) as f:
+        with open(self.output_file, "wb") as f:
 
             f.seek(44)
 
@@ -151,7 +179,10 @@ class AudioService:
 
             try:
 
-                print("[audio] transcribe_attempt=", attempt + 1)
+                print(
+                    "[audio] transcribe_attempt=",
+                    attempt + 1
+                )
 
                 client.connect()
 
@@ -176,6 +207,7 @@ class AudioService:
             except Exception as error:
 
                 last_error = error
+
                 print(
                     "[audio] transcribe_error attempt=",
                     attempt + 1,
@@ -186,18 +218,23 @@ class AudioService:
                 gc.collect()
 
                 if attempt == 0:
+
                     sleep_ms = getattr(
                         time,
                         "sleep_ms",
                         None
                     )
+
                     try:
+
                         if sleep_ms:
                             sleep_ms(250)
                         else:
                             time.sleep(0.25)
+
                     except Exception:
                         time.sleep(0.25)
+
                     continue
 
                 raise
@@ -206,7 +243,7 @@ class AudioService:
 
                 try:
                     client.close()
-                except:
+                except Exception:
                     pass
 
                 gc.collect()
@@ -219,40 +256,37 @@ class AudioService:
         )
 
     async def listen(self):
+        
+        self._ensure_mic()
 
-        is_above = await self.is_above_background()
+        is_above = (
+            await self.is_above_background()
+        )
+        
 
-        if not is_above:
-            self.ui.idle()
-            return None
+        
+        is_button_pressed = self.button.value() == 0
+        print(f"[audio] is_button_pressed = {is_button_pressed}")
 
-        # if self.button.value() != 0:
-        #     return None
+        if is_above or is_button_pressed:
+   
 
-        # self.ui.listening()
+            self.ui.listening()
 
-        # await asyncio.sleep(1)
+            await asyncio.sleep_ms(500)
 
-        # await asyncio.sleep_ms(200)
+            self.record_wav()
 
-        # if self.button.value() != 0:
+            # libera buffers I2S antes do TLS
+            self._release_mic()
 
-        #     self.ui.idle()
+            text = self.transcribe_wav()
+            
+            
+            print(f"[audio] Texto gerado: {text} ")
+            if text:
+                return text
+        
+        self.ui.idle()
 
-        #     return None       
-
-        self.record_wav()
-
-        # Free I2S buffers before TLS handshake to reduce ENOMEM risk.
-        self._release_mic()
-
-        # Keep I2S released during chat request too.
-        # It will be reinitialized lazily on next record_wav call.
-        text = self.transcribe_wav()
-
-        while self.button.value() == 0:
-            await asyncio.sleep_ms(10)
-
-        # self.ui.idle()
-
-        return text
+        return None

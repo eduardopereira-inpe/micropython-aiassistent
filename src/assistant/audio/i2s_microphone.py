@@ -13,8 +13,8 @@ class INMP441Microphone:
         ws_pin=25,
         sd_pin=33,
         i2s_id=0,
-        ibuf=32768,
-        noise_threshold=500, 
+        ibuf=65536,
+        noise_threshold=120, 
     ):
         self.sample_rate = sample_rate
         self.noise_threshold = noise_threshold
@@ -33,15 +33,15 @@ class INMP441Microphone:
         )
 
         # Buffer bruto vindo do I2S (1024 bytes = 256 amostras de 32-bit)
-        self.raw_buffer = bytearray(1024)
+        self.raw_buffer = bytearray(4096)
         # Buffer PCM16 convertido (512 bytes = 256 amostras de 16-bit)
-        self.pcm_buffer = bytearray(512)
+        self.pcm_buffer = bytearray(2048)
 
     @property
     def is_above_background(self):
         return self._is_above_background
 
-    def read_pcm16(self):
+    def read_pcm16(self, record_mode=True):
         n = self.audio_in.readinto(self.raw_buffer)
         if n <= 0:
             return None
@@ -55,7 +55,7 @@ class INMP441Microphone:
 
         for s in samples:
             # INMP441: 24-bit alinhado à esquerda em frame 32-bit
-            val = s >> 15
+            val = s >> 16
 
             # Clipping para 16 bits
             if val > 32767:
@@ -71,14 +71,20 @@ class INMP441Microphone:
             self.pcm_buffer[idx] = val & 0xFF
             self.pcm_buffer[idx + 1] = (val >> 8) & 0xFF
             idx += 2
-
-        # Calcula o nível médio de som deste chunk
+            
+            
+        
+            # Calcula o nível médio de som deste chunk
         if num_samples > 0:
             current_volume = sum_amplitude / num_samples
+            if not record_mode:
+                print(f"[audio] Calculating volume... Volume = {current_volume}")
             # Atualiza a variável booleana baseada no limiar (threshold)
-            self._is_above_background = current_volume > self.noise_threshold
+            if current_volume > self.noise_threshold and current_volume < 300:
+                self._is_above_background = True
         else:
             self._is_above_background = False
+
 
         return memoryview(self.pcm_buffer)[:idx]
 
