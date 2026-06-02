@@ -1,9 +1,7 @@
-from machine import I2S
-from machine import Pin
-
 import array
 import struct
 import time
+from machine import I2S, Pin
 
 
 class INMP441Microphone:
@@ -15,73 +13,76 @@ class INMP441Microphone:
         ws_pin=25,
         sd_pin=33,
         i2s_id=0,
-        ibuf=32768
+        ibuf=32768,
+        noise_threshold=500, 
     ):
-
         self.sample_rate = sample_rate
+        self.noise_threshold = noise_threshold
+        self._is_above_background = False 
 
         self.audio_in = I2S(
             i2s_id,
-
             sck=Pin(sck_pin),
             ws=Pin(ws_pin),
             sd=Pin(sd_pin),
-
             mode=I2S.RX,
-
             bits=32,
             format=I2S.MONO,
-
             rate=sample_rate,
-
-            ibuf=ibuf
+            ibuf=ibuf,
         )
 
-        # Buffer bruto vindo do I2S
+        # Buffer bruto vindo do I2S (1024 bytes = 256 amostras de 32-bit)
         self.raw_buffer = bytearray(1024)
-
-        # Buffer PCM16 convertido
+        # Buffer PCM16 convertido (512 bytes = 256 amostras de 16-bit)
         self.pcm_buffer = bytearray(512)
-        self.dc_offset = 0
+
+    @property
+    def is_above_background(self):
+        return self._is_above_background
 
     def read_pcm16(self):
-
         n = self.audio_in.readinto(self.raw_buffer)
-
         if n <= 0:
             return None
 
         samples = array.array("i", self.raw_buffer)
-
         idx = 0
 
+        # Variáveis para calcular a média do volume nesta leitura
+        sum_amplitude = 0
+        num_samples = len(samples)
+
         for s in samples:
-
-            # INMP441:
-            # 24-bit alinhado à esquerda em frame 32-bit
-
+            # INMP441: 24-bit alinhado à esquerda em frame 32-bit
             val = s >> 15
 
-            # ganho
-#             val *= 4
-
-            # clipping
+            # Clipping para 16 bits
             if val > 32767:
                 val = 32767
-
             elif val < -32768:
                 val = -32768
 
-            # little endian
+            # Somando o valor absoluto para cálculo de volume
+            # (evita cancelamento negativo)
+            sum_amplitude += abs(val)
+
+            # Little endian para o PCM buffer
             self.pcm_buffer[idx] = val & 0xFF
             self.pcm_buffer[idx + 1] = (val >> 8) & 0xFF
-
             idx += 2
+
+        # Calcula o nível médio de som deste chunk
+        if num_samples > 0:
+            current_volume = sum_amplitude / num_samples
+            # Atualiza a variável booleana baseada no limiar (threshold)
+            self._is_above_background = current_volume > self.noise_threshold
+        else:
+            self._is_above_background = False
 
         return memoryview(self.pcm_buffer)[:idx]
 
     def close(self):
-
         self.audio_in.deinit()
 
 

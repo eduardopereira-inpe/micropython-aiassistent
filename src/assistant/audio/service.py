@@ -74,6 +74,23 @@ class AudioService:
         self.mic = None
         gc.collect()
 
+    async def is_above_background(self):
+        print("[audio] Checking if above background noise...")
+
+        gc.collect()
+
+        self._ensure_mic()
+        mic = self.mic
+
+        if mic is None:
+            raise Exception("Microphone unavailable")
+        print("[audio] Reading PCM16...")
+        mic.read_pcm16()
+        is_above = mic.is_above_background
+        print("[audio] is_above_background=", is_above)
+
+        return is_above
+
     def record_wav(self):
 
         gc.collect()
@@ -203,20 +220,26 @@ class AudioService:
 
     async def listen(self):
 
-        if self.button.value() != 0:
-            return None
+        is_above = await self.is_above_background()
 
-        self.ui.listening()
-
-        await asyncio.sleep(1)
-
-        await asyncio.sleep_ms(200)
-
-        if self.button.value() != 0:
-
+        if not is_above:
             self.ui.idle()
-
             return None
+
+        # if self.button.value() != 0:
+        #     return None
+
+        # self.ui.listening()
+
+        # await asyncio.sleep(1)
+
+        # await asyncio.sleep_ms(200)
+
+        # if self.button.value() != 0:
+
+        #     self.ui.idle()
+
+        #     return None       
 
         self.record_wav()
 
