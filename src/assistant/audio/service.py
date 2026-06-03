@@ -263,8 +263,6 @@ class AudioService:
             await self.is_above_background()
         )
         
-
-        
         is_button_pressed = self.button.value() == 0
         print(f"[audio] is_button_pressed = {is_button_pressed}")
 
@@ -283,7 +281,7 @@ class AudioService:
             text = self.transcribe_wav()
             
             
-            print(f"[audio] Texto gerado: {text} ")
+            print(f"[audio] Texto gerado: {text} {text == ''}")
             if text:
                 return text
         

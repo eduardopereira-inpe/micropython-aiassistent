@@ -53,6 +53,7 @@ class INMP441Microphone:
         sum_amplitude = 0
         num_samples = len(samples)
 
+
         for s in samples:
             # INMP441: 24-bit alinhado à esquerda em frame 32-bit
             val = s >> 16
@@ -74,7 +75,7 @@ class INMP441Microphone:
             
             
         
-            # Calcula o nível médio de som deste chunk
+        # Calcula o nível médio de som deste chunk
         if num_samples > 0:
             current_volume = sum_amplitude / num_samples
             if not record_mode:
