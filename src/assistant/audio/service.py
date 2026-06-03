@@ -19,6 +19,7 @@ from assistant.llm.stream_client import (
     OpenAIStreamClient
 )
 
+USE_SOUND = True
 
 class AudioService:
 
@@ -109,7 +110,7 @@ class AudioService:
                 self._last_sound_time
             )
 
-            if elapsed > 500:
+            if elapsed > 1000:
                 self.is_sound_detected = False
 
         print(
@@ -266,7 +267,7 @@ class AudioService:
         is_button_pressed = self.button.value() == 0
         print(f"[audio] is_button_pressed = {is_button_pressed}")
 
-        if is_above or is_button_pressed:
+        if (is_above and USE_SOUND) or is_button_pressed:
    
 
             self.ui.listening()
@@ -285,6 +286,6 @@ class AudioService:
             if text:
                 return text
         
-        self.ui.idle()
+#         self.ui.idle()
 
         return None
