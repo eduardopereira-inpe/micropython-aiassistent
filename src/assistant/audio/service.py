@@ -19,7 +19,7 @@ from assistant.llm.stream_client import (
     OpenAIStreamClient
 )
 
-USE_SOUND = True
+USE_SOUND_DETECTED = True
 
 class AudioService:
 
@@ -260,14 +260,14 @@ class AudioService:
         
         self._ensure_mic()
 
-        is_above = (
+        is_above_background = (
             await self.is_above_background()
         )
         
         is_button_pressed = self.button.value() == 0
         print(f"[audio] is_button_pressed = {is_button_pressed}")
 
-        if (is_above and USE_SOUND) or is_button_pressed:
+        if (is_above_background and USE_SOUND_DETECTED) or is_button_pressed:
    
 
             self.ui.listening()
