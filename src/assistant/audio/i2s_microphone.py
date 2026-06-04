@@ -1,28 +1,78 @@
+"""
+I2S microphone capture utilities for the INMP441 on MicroPython.
+
+Target hardware
+---------------
+- Board: NodeMCU with ESP32-WROOM
+- Runtime: MicroPython
+- Microphone: INMP441 over I2S
+
+Hardware and runtime limitations
+--------------------------------
+- This target is an older and resource-constrained ESP32 board.
+- CPU time, RAM, and I/O throughput are limited compared to desktop Python
+    or newer microcontrollers.
+- In this environment, the audio capture loop is timing-sensitive. Small
+    structural changes in the hot path may change the behavior even when the
+    high-level logic looks equivalent.
+- Extra method calls, additional allocations, repeated buffer conversions, or
+    partial-read recovery logic inside the per-sample path can introduce audible
+    artifacts such as robotic voice, chopped audio, echo-like effects, or faster
+    playback.
+
+Experiment notes
+----------------
+- The original implementation produced the most reliable audio on this board.
+- Attempts to "clean up" or optimize the per-sample loop changed the runtime
+    characteristics enough to degrade the recording quality.
+- Refactorings that added helper calls inside the sample-processing loop, or
+    changed how raw I2S bytes were rebuilt into samples, caused regressions even
+    when the mathematical intent remained the same.
+- For this reason, `read_pcm16` should be treated as a hardware-validated hot
+    path. Prefer conservative changes and validate on the physical device after
+    every modification.
+
+Maintenance guidance
+--------------------
+- Prefer readability improvements around the hot path rather than inside it.
+- Avoid changing buffer strategy, sample conversion order, or I2S read timing
+    unless the change is backed by device testing.
+- If experimentation is needed, keep a known-good version available for quick
+    rollback.
+"""
+
 import array
 import struct
 import time
 from machine import I2S, Pin
 
-def calculate_median(data):
-    # Sort the data in ascending order
-    sorted_data = sorted(data)
-    n = len(sorted_data)
-    
-    # Check if the list is empty
-    if n == 0:
-        raise ValueError("The list cannot be empty.")
-        
-    mid = n // 2
-    
-    # If odd, return the middle element
-    if n % 2 != 0:
-        return sorted_data[mid]
-        
-    # If even, return the average of the two middle elements
-    return (sorted_data[mid - 1] + sorted_data[mid]) / 2
-
 
 class INMP441Microphone:
+    """Capture mono audio from an INMP441 microphone over I2S.
+
+    This implementation is tuned for MicroPython running on an older
+    NodeMCU ESP32-WROOM board. The `read_pcm16` method is timing-sensitive
+    and should be changed conservatively.
+
+    Args:
+        sample_rate: Target I2S sample rate in Hz.
+        sck_pin: GPIO used for the I2S serial clock.
+        ws_pin: GPIO used for the I2S word select signal.
+        sd_pin: GPIO used for the I2S serial data line.
+        i2s_id: MicroPython I2S peripheral identifier.
+        ibuf: Internal I2S driver buffer size in bytes.
+        noise_threshold: RMS threshold used to flag audio above the
+            background level.
+        offset: Offset applied while updating the DC estimate.
+
+    Attributes:
+        sample_rate: Configured I2S sample rate in Hz.
+        noise_threshold: RMS threshold for background detection.
+        offset: Offset applied during DC compensation.
+    """
+
+    _MAX_SIGNAL_LEVEL = 150
+    _GAIN_COMPENSATION_BITS = 16
 
     def __init__(
         self,
@@ -38,7 +88,7 @@ class INMP441Microphone:
         self.sample_rate = sample_rate
         self.noise_threshold = noise_threshold
         self.offset = offset
-        self._is_above_background = False 
+        self._is_above_background = False
 
         self.audio_in = I2S(
             i2s_id,
@@ -54,93 +104,89 @@ class INMP441Microphone:
 
         # Buffer bruto vindo do I2S (1024 bytes = 256 amostras de 32-bit)
         self.raw_buffer = bytearray(4096)
+
         # Buffer PCM16 convertido (512 bytes = 256 amostras de 16-bit)
         self.pcm_buffer = bytearray(2048)
-        
-        self._lp_state = 0.0
+
         self._dc_estimate = 0
 
     @property
     def is_above_background(self):
+        """Return whether the latest chunk is above the background threshold.
+
+        Returns:
+            bool: True when the last processed chunk exceeded the configured
+                noise threshold and stayed below the maximum signal guard.
+        """
         return self._is_above_background
 
     def read_pcm16(self, record_mode=True):
-        n = self.audio_in.readinto(self.raw_buffer)
-        if n <= 0:
+        """Read one I2S chunk and convert it to PCM16 little-endian audio.
+
+        The method reads raw I2S samples, converts them to signed 16-bit PCM,
+        updates the background-noise state, and returns a view over the shared
+        PCM buffer.
+
+        Args:
+            record_mode: When False, prints the current volume estimate for
+                debugging.
+
+        Returns:
+            memoryview | None: A view containing the converted PCM16 bytes, or
+                None when no bytes were read from the I2S device.
+        """
+        bytes_read = self.audio_in.readinto(self.raw_buffer)
+
+        if bytes_read <= 0:
             return None
 
         samples = array.array("i", self.raw_buffer)
         idx = 0
-
-        # Variáveis para calcular a média do volume nesta leitura
-        sum_amplitude = 0
         sum_sq = 0
-        num_samples = len(samples)
-        
-        alpha = 95
-        filtered_samples = []
-        
-        for s in samples:
-            # INMP441: 24-bit alinhado à esquerda em frame 32-bit
-            val = s >> 16
+        sample_count = len(samples)
 
-            # Clipping para 16 bits
-            if val > 32767:
-                val = 32767
-            elif val < -32768:
-                val = -32768
-                
-            self._dc_estimate += (val - self._dc_estimate + self.offset) >> 8
-            
-            filtered = val - self._dc_estimate
-            
-            filtered_samples.append(filtered)
-#             print(f"[MIC] {filtered}")
-                
-#             self._lp_state = (
-#                 alpha * self._lp_state
-#                 + (1.0 - alpha) * val
-#             ) // 100
-# 
-#             # Somando o valor absoluto para cálculo de volume
-#             # (evita cancelamento negativo)
-# #             sum_amplitude += abs(val)
-#             
-#             filtered = int(self._lp_state)
-            
+        for sample in samples:
+            value = sample >> self._GAIN_COMPENSATION_BITS
+
+            if value > 32767:
+                value = 32767
+            elif value < -32768:
+                value = -32768
+
+            self._dc_estimate += (
+                value - self._dc_estimate + self.offset
+            ) >> 8
+
+            filtered = value - self._dc_estimate
             sum_sq += filtered * filtered
 
-            # Little endian para o PCM buffer
-            self.pcm_buffer[idx] = filtered  & 0xFF
-            self.pcm_buffer[idx + 1] = (filtered  >> 8) & 0xFF
+            self.pcm_buffer[idx] = filtered & 0xFF
+            self.pcm_buffer[idx + 1] = (filtered >> 8) & 0xFF
             idx += 2
-            
-            
-        
-        # Calcula o nível médio de som deste chunk
-        if num_samples > 0:
-#             current_volume = sum_amplitude / num_samples
-            rms = (sum_sq / num_samples) ** 0.5
+
+        if sample_count > 0:
+            rms = (sum_sq / sample_count) ** 0.5
             current_volume = int(rms)
+
             if not record_mode:
-                print(f"[audio] Calculating volume... Volume = {current_volume}")
-            # Atualiza a variável booleana baseada no limiar (threshold)
-            if current_volume > self.noise_threshold and current_volume < 150:
+                print(
+                    f"[audio] Calculating volume... Volume = {current_volume}"
+                )
+
+            if (
+                current_volume > self.noise_threshold and
+                current_volume < self._MAX_SIGNAL_LEVEL
+            ):
                 self._is_above_background = True
             else:
                 self._is_above_background = False
-                
         else:
             self._is_above_background = False
-            
-        
-#         median_val = calculate_median(filtered_samples)
-#         print(f"[MIC] median: {median_val}")
-
 
         return memoryview(self.pcm_buffer)[:idx]
 
     def close(self):
+        """Release the underlying I2S peripheral."""
         self.audio_in.deinit()
 
 
@@ -149,6 +195,13 @@ def write_wav_header(
     sample_rate,
     pcm_size
 ):
+    """Write a PCM WAV header to an already opened file.
+
+    Args:
+        file: File-like object opened in binary write mode.
+        sample_rate: Audio sample rate in Hz.
+        pcm_size: PCM payload size in bytes.
+    """
 
     byte_rate = sample_rate * 2
     block_align = 2
@@ -193,42 +246,31 @@ if __name__ == "__main__":
     print("Recording...")
 
     total_pcm_bytes = 0
-    ignore_chunck = 2
-    count = 0
 
-    with open(OUTPUT_FILE, "wb") as f:
-        
+    try:
+        with open(OUTPUT_FILE, "wb") as f:
+            f.seek(44)
 
+            start = time.time()
 
-        # pula cabeçalho WAV
-        f.seek(44)
+            while (
+                time.time() - start <
+                RECORD_SECONDS
+            ):
+                chunk = mic.read_pcm16(record_mode=False)
 
-        start = time.time()
+                if chunk:
+                    total_pcm_bytes += f.write(chunk)
 
-        while (
-            time.time() - start <
-            RECORD_SECONDS
-        ):
+            f.seek(0)
 
-            chunk = mic.read_pcm16(record_mode=False)
-
-            if chunk:
-                written = f.write(chunk)
-
-                total_pcm_bytes += written
-
-        # volta para escrever cabeçalho WAV
-        f.seek(0)
-        
-        write_wav_header(
-            file=f,
-            sample_rate=SAMPLE_RATE,
-            pcm_size=total_pcm_bytes
-        )
-        
-            
-
-    mic.close()
+            write_wav_header(
+                file=f,
+                sample_rate=SAMPLE_RATE,
+                pcm_size=total_pcm_bytes
+            )
+    finally:
+        mic.close()
 
     print("Done.")
 
