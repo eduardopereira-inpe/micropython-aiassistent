@@ -52,6 +52,8 @@ class AudioService:
         )
 
         self.mic = None
+        self._reset_mic_after = 1
+        self._count_reset_mic = 0
 
         self._ensure_mic()
 
@@ -65,7 +67,8 @@ class AudioService:
             sck_pin=32,
             ws_pin=25,
             sd_pin=33,
-            ibuf=self.mic_ibuf
+            ibuf=self.mic_ibuf,
+            noise_threshold=120,
         )
 
     def _release_mic(self):
@@ -91,10 +94,19 @@ class AudioService:
 
         if mic is None:
             raise Exception("Microphone unavailable")
+        
+#         await asyncio.sleep_ms(100)
+        
+        sound_samp = 0
+        n = 5
+        for i in range(n):
+            mic.read_pcm16(record_mode=False)
+            sound_samp += float(mic.is_above_background)
+            
+        sound_samp = sound_samp / n
+        print(f"[service] Sample Background: {sound_samp}")
 
-        mic.read_pcm16(record_mode=False)
-
-        is_above = mic.is_above_background
+        is_above = True if sound_samp > 0.5 else False
 
         current_time = utime.ticks_ms()
 
@@ -118,7 +130,7 @@ class AudioService:
             self.is_sound_detected
         )
 
-        await asyncio.sleep(0)
+
 
         return self.is_sound_detected
 
@@ -256,9 +268,7 @@ class AudioService:
             "Transcription failed"
         )
 
-    async def listen(self):
-        
-        self._ensure_mic()
+    async def listen(self):        
 
         is_above_background = (
             await self.is_above_background()
@@ -272,7 +282,7 @@ class AudioService:
 
             self.ui.listening()
 
-            await asyncio.sleep_ms(500)
+            await asyncio.sleep_ms(10)
 
             self.record_wav()
 
@@ -281,10 +291,10 @@ class AudioService:
 
             text = self.transcribe_wav()
             
-            
             print(f"[audio] Texto gerado: {text} {text == ''}")
             if text:
                 return text
+
         
 #         self.ui.idle()
 

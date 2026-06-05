@@ -71,7 +71,7 @@ class INMP441Microphone:
         offset: Offset applied during DC compensation.
     """
 
-    _MAX_SIGNAL_LEVEL = 150
+    _MAX_SIGNAL_LEVEL = 1000
     _GAIN_COMPENSATION_BITS = 16
 
     def __init__(
@@ -82,7 +82,7 @@ class INMP441Microphone:
         sd_pin=33,
         i2s_id=0,
         ibuf=65536,
-        noise_threshold=75,
+        noise_threshold=70,
         offset=240
     ):
         self.sample_rate = sample_rate
@@ -169,9 +169,11 @@ class INMP441Microphone:
             current_volume = int(rms)
 
             if not record_mode:
+
                 print(
                     f"[audio] Calculating volume... Volume = {current_volume}"
                 )
+                
 
             if (
                 current_volume > self.noise_threshold and
@@ -229,7 +231,7 @@ def write_wav_header(
 
 if __name__ == "__main__":
 
-    SAMPLE_RATE = 16000
+    SAMPLE_RATE = 16000 //2
     RECORD_SECONDS = 5
 
     OUTPUT_FILE = "test.wav"

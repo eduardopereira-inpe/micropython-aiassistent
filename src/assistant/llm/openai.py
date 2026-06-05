@@ -60,6 +60,7 @@ class OpenAI:
         temperature=0.7,
         stream=True,
         callback=None,
+        tools=None,
         keep_full_response=True
     ):
 
@@ -94,6 +95,9 @@ class OpenAI:
             "temperature": temperature,
             "stream": stream
         }
+        
+        if tools:
+            data["tools"] = tools
         
         self._debug_mem(stage)
 
