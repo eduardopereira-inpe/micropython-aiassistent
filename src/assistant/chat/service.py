@@ -9,13 +9,13 @@ class ChatService:
 
     def __init__(
         self,
-        ollama,
+        llm,
         ui,
         player,
         display
     ):
 
-        self.ollama = ollama
+        self.llm = llm
         self.ui = ui
         self.player = player
 
@@ -25,7 +25,11 @@ class ChatService:
             )
         )
 
-    async def ask(self, question):
+    async def ask(
+        self,
+        question,
+        tools=None
+    ):
 
         self.callback.buffer = ""
         self.callback.started_response = False
@@ -41,15 +45,30 @@ class ChatService:
             "Nao use emojis. "
             "Nao use listas. "
             "Use no maximo uma frase curta. "
-            f"Pergunta do usuario: {question}"
+            "Pergunta do usuario: {}".format(
+                question
+            )
         )
 
-        self.ollama.chat(
-            prompt,
-            stream=True,
+        result = self.llm.chat(
+            prompt=prompt,
+            stream=(tools is None),
             callback=self.callback.on_token,
-            keep_full_response=False
+            tools=tools
         )
+
+        if not self.callback.started_response:
+
+            response = result.get(
+                "response",
+                ""
+            )
+
+            if response:
+
+                self.callback.on_token(
+                    response
+                )
 
         await asyncio.sleep(0.5)
 
@@ -82,6 +101,9 @@ class ChatService:
             pass
 
         if self.callback.started_response:
+
             await self.ui.wait_message_cycle()
 
         self.ui.idle()
+
+        return result

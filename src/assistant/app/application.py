@@ -1,6 +1,7 @@
 import gc
 import uasyncio as asyncio
 import utime
+
 from assistant.config import (
     API_KEY,
     SSID,
@@ -35,18 +36,32 @@ from assistant.chat.service import (
     ChatService
 )
 
+from assistant.tools.tools import (
+    get_temperature,
+    GET_TEMPERATURE_SCHEMA
+)
+
+
+
+# --------------------------------------------------
+# Application
+# --------------------------------------------------
 
 class AssistantApplication:
 
     def __init__(self):
 
-        self.display = EmotionDisplay()
+        self.display = (
+            EmotionDisplay()
+        )
 
         self.sleep_time = 50
 
         self._state = "idle"
 
-        self._current_time = utime.time()
+        self._current_time = (
+            utime.time()
+        )
 
         self.ui = AssistantUI(
             self.display
@@ -57,8 +72,18 @@ class AssistantApplication:
             volume=600
         )
 
-        self.ollama = OpenAI(
+        self.llm = OpenAI(
             api_key=API_KEY
+        )
+
+        # ------------------------------
+        # Register Tools
+        # ------------------------------
+
+        self.llm.register_tool(
+            name="get_temperature",
+            func=get_temperature,
+            schema=GET_TEMPERATURE_SCHEMA
         )
 
         self.audio = AudioService(
@@ -67,7 +92,7 @@ class AssistantApplication:
         )
 
         self.chat = ChatService(
-            ollama=self.ollama,
+            llm=self.llm,
             ui=self.ui,
             player=self.player,
             display=self.display
@@ -100,49 +125,80 @@ class AssistantApplication:
 
             try:
 
-                question = await self.audio.listen()
+                question = (
+                    await self.audio.listen()
+                )
 
                 if not question:
 
-                    await asyncio.sleep_ms(0)
-                    if utime.time() - self._current_time > self.sleep_time:
+                    await asyncio.sleep_ms(
+                        0
+                    )
+
+                    if (
+                        utime.time()
+                        - self._current_time
+                        > self.sleep_time
+                    ):
+
                         self.ui.sleep()
-                        self._state = "sleep"
+
+                        self._state = (
+                            "sleep"
+                        )
 
                     continue
-                
-                
-                if self._state == "sleep":
+
+                if (
+                    self._state
+                    == "sleep"
+                ):
+
                     self.ui.idle()
-                    self._state = "idle"
-                    self._current_time = utime.time()
+
+                    self._state = (
+                        "idle"
+                    )
+
+                    self._current_time = (
+                        utime.time()
+                    )
 
                 gc.collect()
-#                 await asyncio.sleep_ms(50)
 
                 await self.chat.ask(
-                    question
+                    question,
+                    tools=self.llm.get_tools_schema()
                 )
-                
-                self.audio.is_sound_detected = False
+
+                self.audio.is_sound_detected = (
+                    False
+                )
 
                 gc.collect()
 
             except KeyboardInterrupt:
 
-                print("\nEncerrando...")
+                print(
+                    "\nEncerrando..."
+                )
 
                 break
 
             except Exception as error:
 
-                print("Erro:", error)
+                print(
+                    "Erro:",
+                    error
+                )
 
                 self.ui.error(
                     "Erro na requisicao"
                 )
 
-                await asyncio.sleep(2)
+                await asyncio.sleep(
+                    2
+                )
 
                 gc.collect()
 

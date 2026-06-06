@@ -96,9 +96,7 @@ class AssistantUI:
 
         self.display.idle()
         self.display.scroll_x = 0
-        self.display.set_message(
-            self._message("idle")
-        )
+        self.display.set_message("")
 
     def listening(self):
 

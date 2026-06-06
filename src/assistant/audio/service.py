@@ -68,7 +68,7 @@ class AudioService:
             ws_pin=25,
             sd_pin=33,
             ibuf=self.mic_ibuf,
-            noise_threshold=120,
+            noise_threshold=100,
         )
 
     def _release_mic(self):
