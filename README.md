@@ -1,6 +1,6 @@
 # MicroPython AI Assistant
 
-Reusable MicroPython voice assistant library for ESP32-class boards.
+A reusable MicroPython voice assistant for ESP32-class boards.
 
 Repository: https://github.com/eduardopereira-inpe/micropython-aiassistent
 
@@ -10,10 +10,11 @@ This project captures audio from an INMP441 microphone, sends it to OpenAI trans
 
 - Library-first architecture under `src/assistant`
 - Domain-oriented package organization (`assistant.audio`, `assistant.llm`, etc.)
-- Runnable examples under `src/examples`
-- UI messages externalized in JSON (`assistant/ui/messages.json`)
-- Network/memory diagnostics for constrained MicroPython environments
-- Initial `manifest.py` for future `mip` packaging
+- Runnable example under `src/examples`
+- UI messages externalized in `assistant/ui/messages.json`
+- Network and memory diagnostics for constrained MicroPython devices
+- Basic tool-calling support for LLM function execution
+- `manifest.py` ready for `mip` packaging workflows
 
 ## Repository Structure
 
@@ -25,49 +26,52 @@ src/
     app/
       __init__.py
       application.py
-    ui/
-      __init__.py
-      ui.py
-      messages.json
     audio/
       __init__.py
+      config.py
+      i2s_microphone.py
+      interfaces.py
       service.py
       transcriber.py
-      i2s_microphone.py
       wav.py
-      interfaces.py
-      config.py
+    buzzer/
+      __init__.py
+      melodies.py
+      notes.py
+      player.py
     chat/
       __init__.py
       service.py
     display/
       __init__.py
-      emotion_display.py
       display_callback.py
+      emotion_display.py
       ssd1306.py
     llm/
       __init__.py
-      openai.py
+      interface.py
       ollama.py
+      openai.py
       stream_client.py
-    buzzer/
-      __init__.py
-      player.py
-      melodies.py
-      notes.py
     network/
       __init__.py
       wifi.py
+    tools/
+      __init__.py
+      README.md
+      tools.py
+    ui/
+      __init__.py
+      messages.json
+      ui.py
     utils/
       __init__.py
-      dotenv.py
       asyncinput.py
+      dotenv.py
   examples/
     main.py
-    main_test.py
-    main_old.py
-    button_demo.py
 
+images/
 manifest.py
 README.md
 ```
@@ -81,47 +85,35 @@ README.md
 - Optional passive buzzer
 
 ### Circuit Example
+
 [![Circuit Example](./images/circuit_example.jpeg)](./images/circuit_example.jpeg)
 
-### Diagram Connection
+### Connection Diagram
 
-[![Diagram ](./images/circuit_diagram_example.png)](./images/circuit_diagram_example.png)
+[![Connection Diagram](./images/circuit_diagram_example.png)](./images/circuit_diagram_example.png)
 
-
-### Running
+### Demo Video
 
 [![Watch the video](https://www.youtube.com/shorts/SIbHdoIIevs)](https://www.youtube.com/shorts/SIbHdoIIevs)
 
-
-
 https://github.com/user-attachments/assets/03c58044-3934-4cdb-bfd8-762c81a9f5d3
 
-
-## Usage example
-
-The main file
+## Usage Example
 
 ```python
 import uasyncio as asyncio
 
-from assistant.app.application import (
-    AssistantApplication
-)
+from assistant.app.application import AssistantApplication
 
 
 async def main():
-
     app = AssistantApplication()
-
     await app.run()
 
 
 if __name__ == "__main__":
-
     asyncio.run(main())
 ```
-
-
 
 ## Software Requirements
 
@@ -137,16 +129,16 @@ MicroPython firmware/modules compatible with:
 
 ## Setup
 
-### 1) Clone repository
+### 1) Clone the repository
 
 ```bash
 git clone https://github.com/eduardopereira-inpe/micropython-aiassistent.git
 cd micropython-aiassistent
 ```
 
-### 2) Create `env.txt` on device
+### 2) Create `env.txt` on the device
 
-Create `env.txt` at device root with:
+Create an `env.txt` file at the device root with:
 
 ```text
 API_KEY=your_openai_api_key
@@ -160,11 +152,13 @@ WIFI_PASS=your_wifi_password
 - `SSID`
 - `PASSWORD`
 
-### 3) Deploy to board
+Note: Wi-Fi connection is attempted when `assistant.config` is imported.
+
+### 3) Deploy to the board
 
 Copy `src/assistant` and `src/examples` to your device filesystem.
 
-Example with `mpremote`:
+Example using `mpremote`:
 
 ```bash
 mpremote connect auto fs cp -r src/assistant :/
@@ -174,9 +168,7 @@ mpremote connect auto fs cp env.txt :/
 
 ## Running
 
-### Main assistant app
-
-Run `examples/main.py` on device, for example:
+### Main assistant application
 
 ```bash
 mpremote connect auto run src/examples/main.py
@@ -191,12 +183,6 @@ from examples.main import main
 asyncio.run(main())
 ```
 
-### Button demo (transcription only)
-
-```bash
-mpremote connect auto run src/examples/button_demo.py
-```
-
 ## Core Entry Points
 
 - App orchestrator: `assistant.app.application.AssistantApplication`
@@ -206,9 +192,55 @@ mpremote connect auto run src/examples/button_demo.py
 - OpenAI chat client: `assistant.llm.openai.OpenAI`
 - OpenAI stream transcription client: `assistant.llm.stream_client.OpenAIStreamClient`
 
+## Tool Calling
+
+Tools are located in `src/assistant/tools`.
+
+### How to create a new tool
+
+1. Implement the Python function in `src/assistant/tools/tools.py`.
+2. Create the tool JSON schema in the same file using OpenAI function-calling format.
+3. Keep the Python function name and schema `function.name` aligned.
+4. Define parameters with `type`, `properties`, and `required`.
+5. Keep return payloads compact for MicroPython memory constraints.
+6. Register the tool in `AssistantApplication` by calling `self.llm.register_tool(...)`.
+7. Pass schemas to chat calls (for example: `tools=self.llm.get_tools_schema()`).
+
+### Minimal example
+
+```python
+def get_temperature(city):
+    return "28 degrees Celsius in {}".format(city)
+
+
+GET_TEMPERATURE_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "get_temperature",
+        "description": "Returns the current temperature for a city",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "description": "City name"
+                }
+            },
+            "required": ["city"]
+        }
+    }
+}
+```
+
+### Tool documentation
+
+Detailed documentation for available tools and the creation pattern:
+
+- `src/assistant/tools/README.md`
+
 ## Import Convention
 
-All internal imports use absolute package paths:
+All internal imports should use absolute package paths:
 
 ```python
 from assistant.audio.service import AudioService
@@ -217,7 +249,7 @@ from assistant.llm.openai import OpenAI
 from assistant.network.wifi import conectar_wifi
 ```
 
-## Memory/Network Notes (ESP32)
+## Memory and Network Notes (ESP32)
 
 The project includes mitigations for constrained RAM and unstable links:
 
@@ -247,4 +279,4 @@ package("assistant", base_path="./src")
 
 ## Status
 
-The project is under active development and now follows a reusable library layout with clear separation between framework code and runnable examples.
+The project is under active development and follows a reusable library layout with clear separation between framework code and runnable examples.

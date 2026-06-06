@@ -5,7 +5,7 @@
 def get_temperature(city):
 
     return (
-        "28 graus Celsius em {}".format(
+        "28 degrees Celsius in {}".format(
             city
         )
     )
@@ -16,8 +16,8 @@ GET_TEMPERATURE_SCHEMA = {
     "function": {
         "name": "get_temperature",
         "description": (
-            "Retorna a temperatura atual "
-            "de uma cidade"
+            "Returns the current temperature "
+            "for a city"
         ),
         "parameters": {
             "type": "object",
@@ -25,7 +25,7 @@ GET_TEMPERATURE_SCHEMA = {
                 "city": {
                     "type": "string",
                     "description": (
-                        "Nome da cidade"
+                        "City name"
                     )
                 }
             },
