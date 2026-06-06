@@ -150,6 +150,8 @@ class OpenAI(
                     "tool_calls"
                 )
             )
+            
+            response.close()
 
             if tool_calls:
 

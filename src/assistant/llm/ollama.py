@@ -181,6 +181,8 @@ class Ollama(
                     "tool_calls"
                 )
             )
+            
+            response.close()
 
             # ----------------------------
             # Tool Calling

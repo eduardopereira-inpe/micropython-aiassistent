@@ -38,7 +38,15 @@ from assistant.chat.service import (
 
 from assistant.tools.tools import (
     get_temperature,
-    GET_TEMPERATURE_SCHEMA
+    GET_TEMPERATURE_SCHEMA,
+    turn_onoff_led,
+    TURN_ONOFF_LED_SCHEMA,
+    get_local_time,
+    GET_LOCAL_TIME_SCHEMA,
+    get_local_datetime,
+    GET_LOCAL_DATETIME_SCHEMA 
+    
+    
 )
 
 
@@ -84,6 +92,18 @@ class AssistantApplication:
             name="get_temperature",
             func=get_temperature,
             schema=GET_TEMPERATURE_SCHEMA
+        )
+        
+        self.llm.register_tool(
+            name="turn_onoff_led",
+            func=turn_onoff_led,
+            schema=TURN_ONOFF_LED_SCHEMA
+        )
+        
+        self.llm.register_tool(
+            name="get_local_time",
+            func=get_local_time,
+            schema=GET_LOCAL_TIME_SCHEMA 
         )
 
         self.audio = AudioService(
