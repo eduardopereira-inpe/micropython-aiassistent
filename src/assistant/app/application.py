@@ -36,7 +36,7 @@ from assistant.chat.service import (
     ChatService
 )
 
-from assistant.tools.tools import (
+from assistant.tools import (
     get_temperature,
     GET_TEMPERATURE_SCHEMA,
     turn_onoff_led,
@@ -44,8 +44,13 @@ from assistant.tools.tools import (
     get_local_time,
     GET_LOCAL_TIME_SCHEMA,
     get_local_datetime,
-    GET_LOCAL_DATETIME_SCHEMA 
-    
+    GET_LOCAL_DATETIME_SCHEMA ,
+    Scheduler,
+    create_schedule_event_tool,
+    SCHEDULE_EVENT_SCHEMA, 
+    DisplayMessageTool, 
+    SHOW_MESSAGE_SCHEMA
+
     
 )
 
@@ -63,7 +68,7 @@ class AssistantApplication:
             EmotionDisplay()
         )
 
-        self.sleep_time = 50
+        self.sleep_time = 500
 
         self._state = "idle"
 
@@ -84,9 +89,35 @@ class AssistantApplication:
             api_key=API_KEY
         )
 
+        self.scheduler = Scheduler(
+            tool_executor=
+                self.llm.execute_tool
+        )
+
+        self.llm.set_scheduler(
+            self.scheduler
+        )
+
+        schedule_event_tool = (
+            create_schedule_event_tool(
+                self.scheduler
+            )
+        )
+
+        show_message = DisplayMessageTool(
+            self.ui,
+            self.player
+        )
+
         # ------------------------------
         # Register Tools
         # ------------------------------
+
+        self.llm.register_tool(
+            name="schedule_event",
+            func=schedule_event_tool,
+            schema=SCHEDULE_EVENT_SCHEMA
+        )
 
         self.llm.register_tool(
             name="get_temperature",
@@ -104,6 +135,18 @@ class AssistantApplication:
             name="get_local_time",
             func=get_local_time,
             schema=GET_LOCAL_TIME_SCHEMA 
+        )
+
+        self.llm.register_tool(
+            name="get_local_datetime",
+            func=get_local_datetime,
+            schema=GET_LOCAL_DATETIME_SCHEMA 
+        )
+
+        self.llm.register_tool(
+            name="show_message",
+            func=show_message,
+            schema=SHOW_MESSAGE_SCHEMA
         )
 
         self.audio = AudioService(
@@ -136,6 +179,9 @@ class AssistantApplication:
         )
 
         self.ui.idle()
+        asyncio.create_task(
+            self.scheduler.run()
+        )
 
     async def run(self):
 

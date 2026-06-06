@@ -1,11 +1,15 @@
 from machine import Pin
 from time import gmtime
+
 # --------------------------------------------------
 # Tools
 # --------------------------------------------------
 
 
 
+# --------------------------------------------------
+# Get local datetime and time
+# --------------------------------------------------
 UTC_OFFSET = -3
 
 
@@ -33,23 +37,11 @@ def get_local_datetime():
         t[5]
     )
 
-GET_LOCAL_DATETIME_SCHEMA = {
-    "type": "function",
-    "function": {
-        "name": "get_local_datetime",
-        "description": (
-            "Retorna a data e hora "
-            "local atual."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-            "additionalProperties": False
-        }
-    }
-}
 
+
+# --------------------------------------------------
+# Get local  time
+# --------------------------------------------------
 def get_local_time():
 
     utc = gmtime()
@@ -66,23 +58,9 @@ def get_local_time():
         )
     )
 
-GET_LOCAL_TIME_SCHEMA = {
-    "type": "function",
-    "function": {
-        "name": "get_local_time",
-        "description": (
-            "Retorna a hora local atual "
-            "no formato HH:MM:SS."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {},
-            "required": [],
-            "additionalProperties": False
-        }
-    }
-}
-
+# --------------------------------------------------
+# LED Control
+# --------------------------------------------------
 led = Pin(
     23,
     Pin.OUT
@@ -101,37 +79,9 @@ def turn_onoff_led(value):
 
     return "LED desligado"
     
-    
-TURN_ONOFF_LED_SCHEMA = {
-    "type": "function",
-    "function": {
-        "name": "turn_onoff_led",
-        "description": (
-            "Liga ou desliga o LED "
-            "conectado ao pino 23."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "value": {
-                    "type": "integer",
-                    "description": (
-                        "0 para desligar "
-                        "e 1 para ligar."
-                    ),
-                    "enum": [
-                        0,
-                        1
-                    ]
-                }
-            },
-            "required": [
-                "value"
-            ],
-            "additionalProperties": False
-        }
-    }
-}
+# --------------------------------------------------
+# Get temperature
+# --------------------------------------------------
 
 def get_temperature(city):
 
@@ -141,27 +91,49 @@ def get_temperature(city):
         )
     )
 
-GET_TEMPERATURE_SCHEMA = {
-    "type": "function",
-    "function": {
-        "name": "get_temperature",
-        "description": (
-            "Retorna a temperatura atual "
-            "de uma cidade"
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "city": {
-                    "type": "string",
-                    "description": (
-                        "Nome da cidade"
-                    )
-                }
-            },
-            "required": [
-                "city"
-            ]
-        }
-    }
-}
+
+class DisplayMessageTool:
+
+    def __init__(
+        self,
+        ui, 
+        player
+    ):
+
+        self.ui = ui
+        self.player = player
+
+    def __call__(
+        self,
+        message
+    ):
+
+        self.ui.set_response(
+            message
+        )
+
+        self.player.play(
+                [
+                    'Star Trek intro',
+                    80,
+                    'NOTE_D4',
+                    '-8',
+                    'NOTE_G4',
+                    '16',
+                    'NOTE_C5',
+                    '-4',
+                    'NOTE_B4',
+                    '8',
+                    'NOTE_G4',
+                    '-16',
+                    'NOTE_E4',
+                    '-16',
+                    'NOTE_A4',
+                    '-16',
+                    'NOTE_D5',
+                    '2'
+                ]
+            )
+        return (
+            "Mensagem exibida."
+        )

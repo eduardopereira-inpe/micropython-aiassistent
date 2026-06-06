@@ -45,9 +45,14 @@ class ChatService:
             "Nao use emojis. "
             "Nao use listas. "
             "Use no maximo uma frase curta. "
-            "Pergunta do usuario: {}".format(
-                question
-            )
+            f"Pergunta do usuario: {question}"
+            "\nAo agendar uma ferramenta utilize exatamente"
+            "o nome registrado na lista de tools."
+            "Exemplo: turn_onoff_led\n"
+            "Nao utilize prefixos como:"
+            "\n functions."
+            "\n tools."
+            "\n assistant."
         )
 
         result = self.llm.chat(

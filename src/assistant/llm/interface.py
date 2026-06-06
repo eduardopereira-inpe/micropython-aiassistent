@@ -15,6 +15,7 @@ class LLMInterface:
         self._messages = []
 
         self._tools = {}
+        self._scheduler = None
 
     @property
     def messages(self):
@@ -161,3 +162,10 @@ class LLMInterface:
             )
 
         return schemas
+    
+    def set_scheduler(
+        self,
+        scheduler
+    ):
+
+        self._scheduler = scheduler
