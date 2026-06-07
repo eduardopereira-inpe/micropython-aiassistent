@@ -272,14 +272,11 @@ class AssistantApplication:
                         utime.time()
                     )
 
-                gc.collect()
-
                 await self.chat.ask(
                     question,
                     tools=self.llm.get_tools_schema()
                 )
 
-                gc.collect()
 
             except KeyboardInterrupt:
 
