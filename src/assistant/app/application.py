@@ -28,7 +28,7 @@ from assistant.ui.ui import (
     AssistantUI
 )
 
-from assistant.audio.service import (
+from uvoiced.audio_service import (
     AudioService,
     AudioServiceUIState
 )
@@ -63,7 +63,9 @@ from assistant.tools import (
 
 class AssistantApplication:
 
-    def __init__(self):
+    def __init__(self, verbose=True):
+
+        self.verbose = verbose
 
         self.display = (
             EmotionDisplay()
@@ -183,6 +185,35 @@ class AssistantApplication:
             self.scheduler.run()
         )
 
+             
+    async def audio_monitor(self):
+        
+        print(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
+        
+        if self.audio.audio_service_state == AudioServiceUIState.IDLE:
+            self.ui.idle()
+            await asyncio.sleep_ms(100)
+        
+            
+        if self.audio.audio_service_state == AudioServiceUIState.LISTENING:
+            self.ui.listening()
+            
+            if self.verbose:
+                print(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
+
+            await asyncio.sleep_ms(100)
+
+        if self.audio.audio_service_state == AudioServiceUIState.TRANSCRIBING:
+            self.ui.transcribing()
+            
+            if self.verbose:
+                print(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
+
+            await asyncio.sleep_ms(100)
+            
+        
+        
+
     async def run(self):
 
         await self.initialize()
@@ -191,16 +222,20 @@ class AssistantApplication:
 
             try:
 
-                if self.audio.ui_state == AudioServiceUIState.TRANSCRIBING:
-                    self.ui.transcribing()
-                elif self.audio.ui_state == AudioServiceUIState.LISTENING:
-                    self.ui.listening()
-                else:
-                    self.ui.idle()
+                listener_task = asyncio.create_task(self.audio.listen())
 
-                question = (
-                    await self.audio.listen()
-                )
+                await  self.audio_monitor()
+
+                is_recorded = await listener_task
+
+                if not is_recorded:
+                    continue
+
+                question_task = asyncio.create_task(self.audio.transcribing())
+                
+                await  self.audio_monitor()
+                
+                question = await question_task
 
                 if not question:
 

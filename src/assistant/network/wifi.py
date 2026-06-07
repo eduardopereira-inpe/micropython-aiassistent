@@ -33,10 +33,13 @@ def conectar_wifi(ssid, password):
         print(wlan.ifconfig())
         time.sleep(1)
         
-        ntptime.settime()
-        print("Local time after synchronization：%s" %str(time.localtime()))
-        print(time.gmtime())
-        print(time.time())
+        try:        
+            ntptime.settime()
+            print("Local time after synchronization：%s" %str(time.localtime()))
+            print(time.gmtime())
+            print(time.time())
+        except Exception as error:
+            print(f"[wifi] NTPTime sinc fail: {error}")
 
 
         return True

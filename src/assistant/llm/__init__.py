@@ -1,4 +1,7 @@
-from assistant.llm.openai import OpenAI
-from assistant.llm.ollama import Ollama
-from assistant.llm.stream_client import OpenAIStreamClient
+from .openai import OpenAI
+from .ollama import Ollama
 
+__all__ = [
+    "OpenAI",
+    "Ollama",
+]
