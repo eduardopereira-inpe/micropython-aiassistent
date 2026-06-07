@@ -162,6 +162,7 @@ class AssistantApplication:
             player=self.player,
             display=self.display
         )
+        self._ui_current_state = None
 
     async def initialize(self):
 
@@ -181,6 +182,7 @@ class AssistantApplication:
         )
 
         self.ui.idle()
+        self._ui_current_state = 1
         asyncio.create_task(
             self.scheduler.run()
         )
@@ -191,11 +193,15 @@ class AssistantApplication:
         print(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
         
         if self.audio.audio_service_state == AudioServiceUIState.IDLE:
-            self.ui.idle()
+
+            if self._ui_current_state != 1:
+                self._ui_current_state = 1
+                self.ui.idle()
             await asyncio.sleep_ms(0)
         
             
         if self.audio.audio_service_state == AudioServiceUIState.LISTENING:
+            self._ui_current_state = 2
             self.ui.listening()
             
             if self.verbose:
@@ -204,6 +210,7 @@ class AssistantApplication:
             await asyncio.sleep_ms(100)
 
         if self.audio.audio_service_state == AudioServiceUIState.TRANSCRIBING:
+            self._ui_current_state = 3
             self.ui.transcribing()
             
             if self.verbose:

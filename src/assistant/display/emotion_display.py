@@ -15,7 +15,7 @@ class EmotionDisplay:
 
     MAX_MESSAGE_SIZE = 120
     TEXT_SCROLL_STEP = 2
-    FRAME_DELAY_MS = 30
+    FRAME_DELAY_MS = 10
 
     def __init__(self, scl_pin=22, sda_pin=21):
 
