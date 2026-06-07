@@ -1,3 +1,9 @@
+"""Transcription manager built on top of OpenAIStreamClient.
+
+This module provides a retry-enabled manager that uploads WAV files and
+extracts the ``text`` field from the transcription HTTP response.
+"""
+
 import re
 import gc
 import time
@@ -6,22 +12,49 @@ from .stream_client import OpenAIStreamClient
 from .transcriber_client_manger_interface import TranscriberClientManagerInterface
 
 class TranscriberClientManager(TranscriberClientManagerInterface):
+    """Manage OpenAI transcription requests with retry logic.
+
+    The manager creates stream clients, sends audio files, and parses the
+    resulting response payload to return only the transcription text.
+    """
+
     _NAME = "TranscriberClientManager"
 
-    def __init__(self, api_key, verbose=False):
+    def __init__(self, api_key: str, verbose: bool = False) -> None:
+        """Initialize the transcriber manager.
+
+        Args:
+            api_key: OpenAI API key used to authenticate requests.
+            verbose: Enables diagnostic logging when True.
+        """
 
         self.api_key = api_key
         self.verbose = verbose
         self._client = None
         self._attempts = 2
 
-    def create_client(self):
+    def create_client(self) -> None:
+        """Create and store a new OpenAI stream client instance."""
 
         self._client = OpenAIStreamClient(
             api_key=self.api_key
         )
 
-    def transcribing(self, audio_file_path):
+    def transcribing(self, audio_file_path: str) -> str:
+        """Transcribe an audio file and return recognized text.
+
+        The method retries the full request flow on transient failure:
+        connect, upload, and response read.
+
+        Args:
+            audio_file_path: Path to the WAV file to be transcribed.
+
+        Returns:
+            The transcription text when present, otherwise an empty string.
+
+        Raises:
+            Exception: If transcription fails after all retry attempts.
+        """
 
         if self._client is None:
             self.create_client()

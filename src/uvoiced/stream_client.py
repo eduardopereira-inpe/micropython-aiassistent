@@ -1,8 +1,3 @@
-import socket
-import ssl
-import gc
-import os
-
 """OpenAI audio transcription client for MicroPython.
 
 This module provides :class:`OpenAIStreamClient`, a minimal HTTPS client that
@@ -36,13 +31,29 @@ Notes:
     - The default transcription model is ``gpt-4o-mini-transcribe``.
 """
 
+import gc
+import os
+import socket
+import ssl
+
 class OpenAIStreamClient:
+    """Minimal HTTPS client for OpenAI audio transcription uploads.
+
+    This client sends a local WAV file to OpenAI using multipart/form-data and
+    reads back the full HTTP response body as a string.
+    """
 
     def __init__(
         self,
-        api_key,
-        model="gpt-4o-mini-transcribe"
-    ):
+        api_key: str,
+        model: str = "gpt-4o-mini-transcribe"
+    ) -> None:
+        """Initialize the streaming transcription client.
+
+        Args:
+            api_key: OpenAI API key used for request authorization.
+            model: Transcription model name sent in the multipart payload.
+        """
 
         self.api_key = api_key
         self.model = model
@@ -54,7 +65,12 @@ class OpenAIStreamClient:
 
         self.sock = None
 
-    def _debug_mem(self, stage):
+    def _debug_mem(self, stage: str) -> None:
+        """Print memory diagnostics when available.
+
+        Args:
+            stage: Human-readable label describing the current execution step.
+        """
 
         try:
             print(
@@ -68,7 +84,14 @@ class OpenAIStreamClient:
         except Exception:
             print("[openaistream]", stage, "mem_unavailable")
 
-    def _sleep_ms(self, milliseconds):
+    def _sleep_ms(self, milliseconds: int) -> None:
+        """Sleep for a given number of milliseconds.
+
+        Tries ``utime.sleep_ms`` first and falls back to ``time.sleep``.
+
+        Args:
+            milliseconds: Delay duration in milliseconds.
+        """
 
         try:
             import utime
@@ -83,7 +106,16 @@ class OpenAIStreamClient:
         except Exception:
             pass
 
-    def connect(self):
+    def connect(self) -> None:
+        """Open a TLS connection to the OpenAI API host.
+
+        The method resolves DNS, establishes TCP, and upgrades to TLS.
+        It includes fallback paths for constrained MicroPython TLS behavior.
+
+        Raises:
+            OSError: If TCP/TLS connection setup fails.
+            Exception: Propagates unexpected connection errors.
+        """
 
         gc.collect()
         self._debug_mem("connect_start")
@@ -151,8 +183,22 @@ class OpenAIStreamClient:
 
     def send_wav_file(
         self,
-        filename
-    ):
+        filename: str
+    ) -> None:
+        """Upload a WAV file using multipart/form-data.
+
+        Args:
+            filename: Path to a local WAV file.
+
+        Raises:
+            OSError: If socket write operations fail during upload.
+            Exception: Propagates file and runtime errors.
+        """
+
+        if self.sock is None:
+            raise RuntimeError("Socket is not connected. Call connect() first.")
+
+        sock = self.sock
 
         self._debug_mem("send_start")
 
@@ -210,7 +256,7 @@ class OpenAIStreamClient:
         print("[openaistream] sending_headers")
 
         try:
-            self.sock.write(headers.encode())
+            sock.write(headers.encode())
         except OSError as error:
             print("[openaistream] write_error stage=headers error=", error)
             self._debug_mem("write_error_headers")
@@ -221,7 +267,7 @@ class OpenAIStreamClient:
         print("[openaistream] sending_multipart_start")
 
         try:
-            self.sock.write(part1)
+            sock.write(part1)
         except OSError as error:
             print("[openaistream] write_error stage=part1 error=", error)
             self._debug_mem("write_error_part1")
@@ -244,7 +290,7 @@ class OpenAIStreamClient:
                     break
 
                 try:
-                    self.sock.write(chunk)
+                    sock.write(chunk)
                 except OSError as error:
                     print(
                         "[openaistream] write_error stage=wav_chunk",
@@ -278,7 +324,7 @@ class OpenAIStreamClient:
         print("[openaistream] sending_multipart_end")
 
         try:
-            self.sock.write(part2)
+            sock.write(part2)
         except OSError as error:
             print("[openaistream] write_error stage=part2 error=", error)
             self._debug_mem("write_error_part2")
@@ -286,7 +332,17 @@ class OpenAIStreamClient:
 
         self._debug_mem("send_done")
 
-    def read_response(self):
+    def read_response(self) -> str:
+        """Read and decode the full HTTP response from the server.
+
+        Returns:
+            The decoded HTTP response text.
+        """
+
+        if self.sock is None:
+            raise RuntimeError("Socket is not connected. Call connect() first.")
+
+        sock = self.sock
 
         self._debug_mem("read_start")
 
@@ -297,7 +353,7 @@ class OpenAIStreamClient:
 
             try:
 
-                data = self.sock.read(1024)
+                data = sock.read(1024)
 
                 if not data:
                     break
@@ -328,7 +384,8 @@ class OpenAIStreamClient:
 
         return response.decode()
 
-    def close(self):
+    def close(self) -> None:
+        """Close the underlying socket and free memory resources."""
 
         if self.sock:
             self._debug_mem("close_start")
