@@ -3,7 +3,7 @@ class LLMInterface:
     def __init__(
         self,
         model_name,
-        max_message_history=5
+        max_message_history=4
     ):
 
         self.model_name = model_name

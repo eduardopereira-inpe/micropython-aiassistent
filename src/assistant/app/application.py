@@ -192,7 +192,7 @@ class AssistantApplication:
         
         if self.audio.audio_service_state == AudioServiceUIState.IDLE:
             self.ui.idle()
-            await asyncio.sleep_ms(100)
+            await asyncio.sleep_ms(0)
         
             
         if self.audio.audio_service_state == AudioServiceUIState.LISTENING:
@@ -237,41 +237,7 @@ class AssistantApplication:
                 
                 question = await question_task
 
-                if not question:
-
-                    await asyncio.sleep_ms(
-                        0
-                    )
-
-                    if (
-                        utime.time()
-                        - self._current_time
-                        > self.sleep_time
-                    ):
-
-                        self.ui.sleep()
-
-                        self._state = (
-                            "sleep"
-                        )
-
-                    continue
-
-                if (
-                    self._state
-                    == "sleep"
-                ):
-
-                    self.ui.idle()
-
-                    self._state = (
-                        "idle"
-                    )
-
-                    self._current_time = (
-                        utime.time()
-                    )
-
+               
                 await self.chat.ask(
                     question,
                     tools=self.llm.get_tools_schema()
