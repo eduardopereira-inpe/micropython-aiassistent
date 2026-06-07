@@ -284,6 +284,8 @@ class OpenAI(
                         final_content
                     )
 
+                self.clear_history()
+
                 return {
                     "response":
                         final_content,
@@ -305,6 +307,8 @@ class OpenAI(
             if callback:
                 callback(content)
 
+            self.clear_history()
+
             return {
                 "response":
                     content,
@@ -323,4 +327,5 @@ class OpenAI(
         finally:
 
             if response:
+                self.clear_history()
                 response.close()
