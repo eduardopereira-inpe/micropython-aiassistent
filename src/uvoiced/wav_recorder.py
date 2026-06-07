@@ -14,7 +14,7 @@ class WavRecorder:
         self.wav_file_path = wav_file_path
         self.verbose = verbose
 
-    def record(self, duration_seconds: float):
+    async def record(self, duration_seconds: float):
 
         mic = self.microphone_manager.microphone
 

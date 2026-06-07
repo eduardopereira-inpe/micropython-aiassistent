@@ -23,6 +23,10 @@ class VoiceActivityDetector:
 
         self._is_sound_detected = False
         self._last_sound_time = utime.ticks_ms()
+
+    @property
+    def is_above_background(self):
+        return self._is_sound_detected
   
 
     def _background_noise_ratio(self):
@@ -33,7 +37,7 @@ class VoiceActivityDetector:
         return mic.is_above_background        
         
 
-    async def is_sound_detected(self):
+    async def run(self):
         mic = self.audio_manager.microphone
 
         if mic is None:

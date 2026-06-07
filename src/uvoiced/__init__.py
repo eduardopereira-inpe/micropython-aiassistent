@@ -4,7 +4,7 @@ from .inmp441 import INMP441
 from .wavheader import write_wav_header, WavHeader
 from .microphonemanager import MicrophoneManager
 from .voice_activity_detector import VoiceActivityDetector
-from .record_wav import WavRecorder
+from .wav_recorder import WavRecorder
 
 __all__ = (
 	"INMP441",

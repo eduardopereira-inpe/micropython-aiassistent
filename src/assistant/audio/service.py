@@ -3,12 +3,14 @@ import re
 import time
 import uasyncio as asyncio
 import utime
+from enum import Enum, auto
 
 from machine import Pin
 
-from inmp441 import (
-    INMP441,
-    write_wav_header
+from uvoiced import (
+    VoiceActivityDetector,
+    MicrophoneManager,
+    WavRecorder
 )
 
 from assistant.audio.config import (
@@ -21,166 +23,63 @@ from assistant.llm.stream_client import (
 
 USE_SOUND_DETECTED = True
 
+class AudioServiceUIState(Enum):
+    IDLE = 1
+    LISTENING = 2
+    TRANSCRIBING = 3
+
 class AudioService:
+
+    _NAME = "AudioService"
 
     def __init__(
         self,
         api_key,
-        ui,
         button_pin=4,
         record_seconds=5,
         output_file="test.wav",
-        mic_ibuf=16384
+        mic_ibuf=16384,
+        verbose=False
     ):
 
         self.api_key = api_key
-        self.ui = ui
+
+        self.verbose = verbose
+
+        self.microphone_manager = MicrophoneManager(
+            sample_rate=SAMPLE_RATE, 
+            verbose=verbose,
+            mic_ibuf=mic_ibuf
+        )
+
+        self.voice_activity_detector = VoiceActivityDetector(
+            audio_manager=self.microphone_manager,
+            noise_threshold=100,
+            verbose=verbose
+        )
+
+        self.wav_recorder = WavRecorder(
+            microphone_manager=self.microphone_manager,
+            wav_file_path=output_file,
+            verbose=verbose
+        )
 
         self.record_seconds = record_seconds
         self.output_file = output_file
-        self.mic_ibuf = mic_ibuf
-
-        self.is_sound_detected = False
-
-        # CORREÇÃO:
-        self._last_sound_time = utime.ticks_ms()
-
+        
         self.button = Pin(
             button_pin,
             Pin.IN,
             Pin.PULL_UP
         )
 
-        self.mic = None
-        self._reset_mic_after = 1
-        self._count_reset_mic = 0
-
-        self._ensure_mic()
-
-    def _ensure_mic(self):
-
-        if self.mic is not None:
-            return
-
-        self.mic = INMP441(
-            sample_rate=SAMPLE_RATE,
-            sck_pin=32,
-            ws_pin=25,
-            sd_pin=33,
-            ibuf=self.mic_ibuf,
-            noise_threshold=100,
-        )
-
-    def _release_mic(self):
-
-        if self.mic is None:
-            return
-
-        try:
-            self.mic.close()
-        except Exception:
-            pass
-
-        self.mic = None
-        gc.collect()
-
-    async def is_above_background(self):
-
-        gc.collect()
-
-        self._ensure_mic()
-
-        mic = self.mic
-
-        if mic is None:
-            raise Exception("Microphone unavailable")
-        
-#         await asyncio.sleep_ms(100)
-        
-        sound_samp = 0
-        n = 5
-        for i in range(n):
-            mic.read_pcm16(record_mode=False)
-            sound_samp += float(mic.is_above_background)
-            
-        sound_samp = sound_samp / n
-        print(f"[service] Sample Background: {sound_samp}")
-
-        is_above = True if sound_samp > 0.5 else False
-
-        current_time = utime.ticks_ms()
-
-        if is_above:
-
-            self.is_sound_detected = True
-            self._last_sound_time = current_time
-
-        else:
-
-            elapsed = utime.ticks_diff(
-                current_time,
-                self._last_sound_time
-            )
-
-            if elapsed > 1000:
-                self.is_sound_detected = False
-
-        print(
-            "[audio] is_above_background =",
-            self.is_sound_detected
-        )
-
-
-
-        return self.is_sound_detected
-
-    def record_wav(self):
-
-        gc.collect()
-
-        self._ensure_mic()
-
-        mic = self.mic
-
-        if mic is None:
-            raise Exception("Microphone unavailable")
-
-        self.ui.recording()
-
-        total_pcm_bytes = 0
-
-        with open(self.output_file, "wb") as f:
-
-            f.seek(44)
-
-            start = time.time()
-
-            while (
-                time.time() - start <
-                self.record_seconds
-            ):
-
-                chunk = mic.read_pcm16()
-
-                if chunk:
-
-                    total_pcm_bytes += (
-                        f.write(chunk)
-                    )
-
-            f.seek(0)
-
-            write_wav_header(
-                file=f,
-                sample_rate=SAMPLE_RATE,
-                pcm_size=total_pcm_bytes
-            )
+        self.ui_state = AudioServiceUIState.IDLE
 
     def transcribe_wav(self):
 
         gc.collect()
 
-        self.ui.transcribing()
+        self.ui_state = AudioServiceUIState.TRANSCRIBING
 
         last_error = None
 
@@ -193,8 +92,7 @@ class AudioService:
             try:
 
                 print(
-                    "[audio] transcribe_attempt=",
-                    attempt + 1
+                    f"[{self._NAME}] transcribe_attempt={attempt + 1}"
                 )
 
                 client.connect()
@@ -221,12 +119,11 @@ class AudioService:
 
                 last_error = error
 
-                print(
-                    "[audio] transcribe_error attempt=",
-                    attempt + 1,
-                    "error=",
-                    error
-                )
+                if self.verbose:
+
+                    print(
+                        f"[{self._NAME}] transcribe_error attempt={attempt + 1}, error={error}"
+                    )
 
                 gc.collect()
 
@@ -268,34 +165,35 @@ class AudioService:
             "Transcription failed"
         )
 
-    async def listen(self):        
+    async def listen(self):
 
-        is_above_background = (
-            await self.is_above_background()
-        )
+        await self.voice_activity_detector.run()
         
         is_button_pressed = self.button.value() == 0
-        print(f"[audio] is_button_pressed = {is_button_pressed}")
 
-        if (is_above_background and USE_SOUND_DETECTED) or is_button_pressed:
-   
+        if self.verbose:
+            print(f"[{self._NAME}] is_button_pressed = {is_button_pressed}")
 
-            self.ui.listening()
+        if (self.voice_activity_detector.is_above_background and USE_SOUND_DETECTED) or is_button_pressed:   
+
+            self.ui_state = AudioServiceUIState.LISTENING
 
             await asyncio.sleep_ms(10)
 
-            self.record_wav()
+            await self.wav_recorder.record(
+                duration_seconds=self.record_seconds
+            )
 
-            # libera buffers I2S antes do TLS
-            self._release_mic()
+            self.microphone_manager.release_mic()
 
             text = self.transcribe_wav()
-            
-            print(f"[audio] Texto gerado: {text} {text == ''}")
+
+            self.ui_state = AudioServiceUIState.IDLE
+
+            if self.verbose:            
+                print(f"[{self._NAME}] Texto gerado: {text} {text == ''}")
+
             if text:
                 return text
-
-        
-#         self.ui.idle()
 
         return None

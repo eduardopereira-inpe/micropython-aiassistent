@@ -29,7 +29,8 @@ from assistant.ui.ui import (
 )
 
 from assistant.audio.service import (
-    AudioService
+    AudioService,
+    AudioServiceUIState
 )
 
 from assistant.chat.service import (
@@ -151,7 +152,6 @@ class AssistantApplication:
 
         self.audio = AudioService(
             api_key=API_KEY,
-            ui=self.ui
         )
 
         self.chat = ChatService(
@@ -190,6 +190,13 @@ class AssistantApplication:
         while True:
 
             try:
+
+                if self.audio.ui_state == AudioServiceUIState.TRANSCRIBING:
+                    self.ui.transcribing()
+                elif self.audio.ui_state == AudioServiceUIState.LISTENING:
+                    self.ui.listening()
+                else:
+                    self.ui.idle()
 
                 question = (
                     await self.audio.listen()
@@ -235,10 +242,6 @@ class AssistantApplication:
                 await self.chat.ask(
                     question,
                     tools=self.llm.get_tools_schema()
-                )
-
-                self.audio.is_sound_detected = (
-                    False
                 )
 
                 gc.collect()
