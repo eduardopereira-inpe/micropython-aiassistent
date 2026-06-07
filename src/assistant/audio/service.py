@@ -6,8 +6,8 @@ import utime
 
 from machine import Pin
 
-from assistant.audio.i2s_microphone import (
-    INMP441Microphone,
+from inmp441 import (
+    INMP441,
     write_wav_header
 )
 
@@ -62,7 +62,7 @@ class AudioService:
         if self.mic is not None:
             return
 
-        self.mic = INMP441Microphone(
+        self.mic = INMP441(
             sample_rate=SAMPLE_RATE,
             sck_pin=32,
             ws_pin=25,

@@ -253,6 +253,8 @@ from assistant.network.wifi import conectar_wifi
 
 The project includes mitigations for constrained RAM and unstable links:
 
+- Tests were executed with only 142.6 KB of free RAM available.
+- The currently running scripts and libraries occupied about 20 KB of RAM (162.6 KB - 142.6 KB).
 - TLS/post diagnostics in transcription and chat clients
 - Retry strategy for transient socket failures
 - I2S mic buffer release before TLS-heavy operations

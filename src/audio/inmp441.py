@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+
 """
 I2S microphone capture utilities for the INMP441 on MicroPython.
 
@@ -46,8 +48,9 @@ import struct
 import time
 from machine import I2S, Pin
 
+from .microphoneinterface import MicrophoneInterface
 
-class INMP441Microphone:
+class INMP441(MicrophoneInterface):
     """Capture mono audio from an INMP441 microphone over I2S.
 
     This implementation is tuned for MicroPython running on an older
@@ -102,10 +105,10 @@ class INMP441Microphone:
             ibuf=ibuf,
         )
 
-        # Buffer bruto vindo do I2S (1024 bytes = 256 amostras de 32-bit)
+        # Raw bytes from I2S (4096 bytes = 1024 samples of 32-bit each)
         self.raw_buffer = bytearray(4096)
 
-        # Buffer PCM16 convertido (512 bytes = 256 amostras de 16-bit)
+        # Converted PCM16 output (2048 bytes = 1024 samples of 16-bit each)
         self.pcm_buffer = bytearray(2048)
 
         self._dc_estimate = 0
@@ -169,11 +172,9 @@ class INMP441Microphone:
             current_volume = int(rms)
 
             if not record_mode:
-
                 print(
                     f"[audio] Calculating volume... Volume = {current_volume}"
                 )
-                
 
             if (
                 current_volume > self.noise_threshold and
@@ -192,90 +193,6 @@ class INMP441Microphone:
         self.audio_in.deinit()
 
 
-def write_wav_header(
-    file,
-    sample_rate,
-    pcm_size
-):
-    """Write a PCM WAV header to an already opened file.
-
-    Args:
-        file: File-like object opened in binary write mode.
-        sample_rate: Audio sample rate in Hz.
-        pcm_size: PCM payload size in bytes.
-    """
-
-    byte_rate = sample_rate * 2
-    block_align = 2
-
-    file.write(b"RIFF")
-    file.write(struct.pack("<I", pcm_size + 36))
-    file.write(b"WAVE")
-
-    file.write(b"fmt ")
-    file.write(struct.pack("<I", 16))
-    file.write(struct.pack("<H", 1))
-    file.write(struct.pack("<H", 1))
-
-    file.write(struct.pack("<I", sample_rate))
-
-    file.write(struct.pack("<I", byte_rate))
-
-    file.write(struct.pack("<H", block_align))
-    file.write(struct.pack("<H", 16))
-
-    file.write(b"data")
-
-    file.write(struct.pack("<I", pcm_size))
 
 
-if __name__ == "__main__":
 
-    SAMPLE_RATE = 16000 //2
-    RECORD_SECONDS = 5
-
-    OUTPUT_FILE = "test.wav"
-
-    mic = INMP441Microphone(
-
-        sample_rate=SAMPLE_RATE,
-
-        sck_pin=32,
-        ws_pin=25,
-        sd_pin=33
-    )
-
-    print("Recording...")
-
-    total_pcm_bytes = 0
-
-    try:
-        with open(OUTPUT_FILE, "wb") as f:
-            f.seek(44)
-
-            start = time.time()
-
-            while (
-                time.time() - start <
-                RECORD_SECONDS
-            ):
-                chunk = mic.read_pcm16(record_mode=False)
-
-                if chunk:
-                    total_pcm_bytes += f.write(chunk)
-
-            f.seek(0)
-
-            write_wav_header(
-                file=f,
-                sample_rate=SAMPLE_RATE,
-                pcm_size=total_pcm_bytes
-            )
-    finally:
-        mic.close()
-
-    print("Done.")
-
-    print("PCM bytes:", total_pcm_bytes)
-
-    print("Saved:", OUTPUT_FILE)
