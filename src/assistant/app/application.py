@@ -45,8 +45,8 @@ from ullmtools import (
 )
 
 from ullmtools.tools import (
-    get_temperature,
-    GET_TEMPERATURE_SCHEMA,
+    # get_temperature,
+    # GET_TEMPERATURE_SCHEMA,
     turn_onoff_led,
     TURN_ONOFF_LED_SCHEMA,
     get_local_time,
@@ -57,7 +57,11 @@ from ullmtools.tools import (
     create_schedule_event_tool,
     SCHEDULE_EVENT_SCHEMA, 
     DisplayMessageTool, 
-    SHOW_MESSAGE_SCHEMA
+    SHOW_MESSAGE_SCHEMA, 
+    get_lat_lon,
+    GET_LAT_LON_SCHEMA,
+    get_weather,
+    GET_WEATHER_SCHEMA
 
     
 )
@@ -129,11 +133,11 @@ class AssistantApplication:
             schema=SCHEDULE_EVENT_SCHEMA
         )
 
-        self.llm.register_tool(
-            name="get_temperature",
-            func=get_temperature,
-            schema=GET_TEMPERATURE_SCHEMA
-        )
+        # self.llm.register_tool(
+        #     name="get_temperature",
+        #     func=get_temperature,
+        #     schema=GET_TEMPERATURE_SCHEMA
+        # )
         
         self.llm.register_tool(
             name="turn_onoff_led",
@@ -158,6 +162,21 @@ class AssistantApplication:
             func=show_message,
             schema=SHOW_MESSAGE_SCHEMA
         )
+
+
+        self.llm.register_tool(
+            name="get_lat_lon",
+            func=get_lat_lon,
+            schema=GET_LAT_LON_SCHEMA
+        )
+
+        self.llm.register_tool(
+            name="get_weather",
+            func=get_weather,
+            schema=GET_WEATHER_SCHEMA
+         )
+
+        # ------------------------------
 
         self.audio = AudioService(
             api_key=API_KEY,

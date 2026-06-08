@@ -64,6 +64,8 @@ class ChatService:
             tools=tools
         )
 
+        
+
         if not self.callback.started_response:
 
             response = result.get(
@@ -72,6 +74,7 @@ class ChatService:
             )
 
             if response:
+                self._log(f"[ChatService] Response:\n{result}\n")
 
                 self.callback.on_token(
                     response

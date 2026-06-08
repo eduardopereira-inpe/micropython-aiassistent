@@ -93,6 +93,7 @@ class TranscriberClientManager(TranscriberClientManagerInterface):
                 )
 
                 if match:
+                    self._log(f"[{self._NAME}] Response: {response}")
                     return match.group(1)
 
                 return ""

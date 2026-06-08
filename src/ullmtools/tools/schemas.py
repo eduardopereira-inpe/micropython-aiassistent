@@ -1,4 +1,46 @@
 # --------------------------------------------------
+# Get latitude and longitude from IP
+# --------------------------------------------------
+
+GET_LAT_LON_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "get_lat_lon",
+        "description": (
+            "Retorna a latitude e longitude "
+            "baseadas no endereço IP."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": False
+        }
+    }
+}
+
+# --------------------------------------------------
+# Get Weather from Latitude and Longitude
+# --------------------------------------------------
+
+GET_WEATHER_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": (    
+            "Retorna informações meteorológicas atuais "
+            "da localização do dispositivo, "
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": False
+        }
+    }
+}
+
+# --------------------------------------------------
 # Get local datetime and time Schema
 # --------------------------------------------------
 

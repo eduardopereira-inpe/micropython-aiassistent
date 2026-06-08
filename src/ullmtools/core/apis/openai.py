@@ -224,6 +224,12 @@ class OpenAI(
                     "stream":
                         False
                 }
+
+                if tools:
+                    second_data["tools"] = tools
+                    second_data["tool_choice"] = "auto"
+
+                
                 
                 self._log("[openai] second messages")
                 self._log(self.messages)

@@ -4,6 +4,8 @@ from .tools import (
 	turn_onoff_led,
 	get_temperature,
 	DisplayMessageTool,
+    get_lat_lon,
+    get_weather
 )
 from .schemas import (
 	GET_LOCAL_DATETIME_SCHEMA,
@@ -12,6 +14,8 @@ from .schemas import (
 	GET_TEMPERATURE_SCHEMA,
 	SCHEDULE_EVENT_SCHEMA,
 	SHOW_MESSAGE_SCHEMA,
+	GET_LAT_LON_SCHEMA,
+    GET_WEATHER_SCHEMA
 )
 from .scheduler import Scheduler
 from .schedule_event import create_schedule_event_tool
@@ -30,4 +34,8 @@ __all__ = [
 	"SHOW_MESSAGE_SCHEMA",
 	"Scheduler",
 	"create_schedule_event_tool",
+    "get_lat_lon",
+    "GET_LAT_LON_SCHEMA",
+    "get_weather",
+    "GET_WEATHER_SCHEMA"
 ]
