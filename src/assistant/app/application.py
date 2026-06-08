@@ -12,15 +12,19 @@ from assistant.network.wifi import (
     conectar_wifi
 )
 
-from assistant.display.emotion_display import (
+from udisplay.emotion_display import (
     EmotionDisplay
 )
 
-from ullmtools.core.apis.openai import (
+from udisplay.display_callback import (
+    DisplayCallback
+)
+
+from ullmtools import (
     OpenAI
 )
 
-from assistant.buzzer.player import (
+from ubuzzer.player import (
     BuzzerPlayer
 )
 
@@ -33,11 +37,11 @@ from uvoiced.audio_service import (
     AudioServiceUIState
 )
 
-from assistant.chat.chat_service import (
+from ullmtools import (
     ChatService
 )
 
-from assistant.tools import (
+from ullmtools.tools import (
     get_temperature,
     GET_TEMPERATURE_SCHEMA,
     turn_onoff_led,
@@ -156,12 +160,15 @@ class AssistantApplication:
             api_key=API_KEY,
         )
 
+        self.callback = (
+            DisplayCallback(self.display)
+        )
+
         self.chat = ChatService(
             llm=self.llm,
-            ui=self.ui,
-            player=self.player,
-            display=self.display
+            callback=self.callback
         )
+
         self._ui_current_state = None
 
     def _log(self, msg):
@@ -277,6 +284,10 @@ class AssistantApplication:
                 )
 
                 gc.collect()
+                
+            if self.callback.started_response:
+
+                await self.ui.wait_message_cycle()
 
         self.shutdown()
 

@@ -2,7 +2,7 @@ import uasyncio as asyncio
 
 from machine import Pin, PWM
 
-from assistant.buzzer.notes import notes
+from .notes import notes
 
 
 class BuzzerPlayer:
@@ -170,7 +170,7 @@ class BuzzerPlayer:
 
 if __name__ == "__main__":
 
-    from melodies import melody
+    from melodies import silent_night, star_trek_intro
 
 
     async def main():
@@ -179,7 +179,7 @@ if __name__ == "__main__":
 
         print("Background playback")
 
-        player.play(melody[0])
+        player.play(star_trek_intro)
 
         while player.is_playing():
 
@@ -193,7 +193,7 @@ if __name__ == "__main__":
 
         print("Await playback")
 
-        await player.play_async(melody[1])
+        await player.play_async(silent_night)
 
         print("finished")
 

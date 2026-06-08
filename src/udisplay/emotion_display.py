@@ -2,7 +2,7 @@ import math
 import uasyncio as asyncio
 
 from machine import Pin, SoftI2C
-from assistant.display.ssd1306 import SSD1306_I2C
+from .ssd1306 import SSD1306_I2C
 
 
 class EmotionDisplay:
