@@ -1,3 +1,32 @@
+"""OpenAI Chat Completions client with tool-calling support for MicroPython.
+
+Overview
+--------
+This module implements an `LLMInterface` adapter that talks to the OpenAI
+Chat Completions API. It is designed for constrained devices and keeps
+memory usage explicit with frequent garbage collection and short-lived buffers.
+
+Responsibilities
+----------------
+- Build request payloads for chat completion.
+- Execute HTTP calls against the configured OpenAI endpoint.
+- Parse and execute model-requested tool calls.
+- Keep a bounded tool-calling loop to avoid infinite conversations.
+
+Execution Flow
+--------------
+1. Initialize system/user messages.
+2. Send chat completion request.
+3. If tool calls are returned, execute tools and append tool messages.
+4. Repeat until final assistant content is produced or round limit is hit.
+
+Notes for Embedded Usage
+------------------------
+- JSON payloads are encoded once per request to reduce temporary objects.
+- HTTP responses are always closed in `finally` blocks.
+- `gc.collect()` is intentionally used at key points to free RAM.
+"""
+
 import gc
 import urequests
 import ujson
@@ -7,9 +36,15 @@ from .llminterface import (
 )
 
 
-class OpenAI(
+class OpenAIMTools(
     LLMInterface
 ):
+    """OpenAI implementation of `LLMInterface` with optional tool-calling.
+
+    The class stores conversation history in the inherited message list,
+    sends requests to the OpenAI Chat Completions endpoint, and orchestrates
+    tool execution rounds before returning a final assistant response.
+    """
 
     def __init__(
         self,
@@ -22,6 +57,15 @@ class OpenAI(
         ),
         verbose=False
     ):
+        """Create a new API client.
+
+        Args:
+            api_key: OpenAI API key used in the Authorization header.
+            model: Model identifier used in chat requests.
+            timeout: Reserved timeout value for future transport handling.
+            base_url: Full URL of the chat completions endpoint.
+            verbose: Enables diagnostic logging when True.
+        """
 
         super().__init__(
             model_name=model
@@ -33,6 +77,7 @@ class OpenAI(
         self.verbose = verbose
 
     def _log(self, msg):
+        """Print a diagnostic message only when verbose mode is enabled."""
         if self.verbose:
             print(msg)
 
@@ -42,6 +87,16 @@ class OpenAI(
         temperature,
         tools
     ):
+        """Build the JSON-serializable request body for chat completion.
+
+        Args:
+            max_tokens: Maximum number of output tokens.
+            temperature: Sampling temperature for response variability.
+            tools: Optional tool schema list following OpenAI format.
+
+        Returns:
+            dict: Request payload ready to be JSON-encoded.
+        """
 
         data = {
             "model":
@@ -68,6 +123,19 @@ class OpenAI(
         data,
         log_prefix=""
     ):
+        """Send a chat completion request and return parsed JSON response.
+
+        Args:
+            data: Request payload dictionary.
+            log_prefix: Optional prefix for debug log grouping.
+
+        Returns:
+            dict: Parsed response from OpenAI.
+
+        Raises:
+            Exception: On JSON encoding errors, HTTP errors, or transport
+                failures.
+        """
 
         payload = b""
 
@@ -166,6 +234,11 @@ class OpenAI(
         self,
         tool_call
     ):
+        """Normalize tool-call argument payload into a dictionary.
+
+        OpenAI may return `function.arguments` as a JSON string, as a dict,
+        or as null. This method normalizes all valid variants.
+        """
 
         raw_arguments = (
             tool_call[
@@ -197,6 +270,11 @@ class OpenAI(
         self,
         tool_calls
     ):
+        """Execute model-requested tools and append tool messages.
+
+        Args:
+            tool_calls: List of tool call descriptors returned by the model.
+        """
 
         self._state = (
             ChatState.CALLING_TOOLS
@@ -252,6 +330,23 @@ class OpenAI(
         callback=None,
         tools=None
     ):
+        """Run a full chat turn with optional iterative tool-calling.
+
+        Args:
+            prompt: User prompt for this turn.
+            system_prompt: System instruction used when history is empty.
+            max_tokens: Maximum response tokens for each model round.
+            temperature: Sampling temperature for each model round.
+            stream: Present for interface compatibility; not used here.
+            callback: Optional callback receiving final assistant text.
+            tools: Optional list of OpenAI tool schemas.
+
+        Returns:
+            dict: `{"response": <text>, "raw": <full_api_response>}`.
+
+        Raises:
+            Exception: Wrapped as `OpenAI Error: ...` when any step fails.
+        """
 
         self._state = ChatState.CALLING_LLM
         max_tool_rounds = 5
@@ -388,69 +483,14 @@ class OpenAI(
 
 
 
-import gc
-import network
-import re
-import time
-import ntptime
-
-import urequests
-import ujson
-
-def _log(msg, verbose):
-    if verbose is True:
-        print(msg)
-# =========================================================
-# WiFi
-# =========================================================
-
-
-def conectar_wifi(ssid, password):
-
-    wlan = network.WLAN(network.STA_IF)
-    wlan.active(True)
-
-    if not wlan.isconnected():
-
-        print(f"Conectando em: {ssid}")
-
-        wlan.connect(ssid, password)
-
-        tentativas = 0
-
-        while not wlan.isconnected() and tentativas < 10:
-            time.sleep(1)
-            tentativas += 1
-            print(".", end="")
-
-    if wlan.isconnected():
-
-        print("\nWiFi conectado")
-        print(wlan.ifconfig())
-        time.sleep(1)
-        
-        try:        
-            ntptime.settime()
-            print("Local time after synchronization：%s" %str(time.localtime()))
-            print(time.gmtime())
-            print(time.time())
-        except Exception as error:
-            print(f"[wifi] NTPTime sinc fail: {error}")
-            
-        
-
-
-        return True
-
-    print("\nFalha no WiFi")
-
-    return False
 
     
         
     
 
 if __name__ == "__main__":
+    from assistant.network.wifi import conectar_wifi
+
     
     # SSID_REDE = "NOTE-646635 1412"
     # SENHA_REDE = "798-y6N1"
@@ -463,9 +503,56 @@ if __name__ == "__main__":
         SENHA_REDE
     )
     
+    def turn_onoff_led(value):
+
+        value = int(value)
+        print(f"[TURN_ONOFF_LED] {value}")
+
+
+        if value == 1:
+            return "LED ligado"
+
+        return "LED desligado"
+    
+    # --------------------------------------------------
+    # LED Control Schema
+    # --------------------------------------------------
+       
+    TURN_ONOFF_LED_SCHEMA = {
+        "type": "function",
+        "function": {
+            "name": "turn_onoff_led",
+            "description": (
+                "Liga ou desliga o LED "
+                "conectado ao pino 23."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "value": {
+                        "type": "integer",
+                        "description": (
+                            "0 para desligar "
+                            "e 1 para ligar."
+                        ),
+                        "enum": [
+                            0,
+                            1
+                        ]
+                    }
+                },
+                "required": [
+                    "value"
+                ],
+                "additionalProperties": False
+            }
+        }
+    }
+    
 
     def get_temperature(city):
-        return "28 graus Celsius em {}".format(city)
+        print(f"[GET_TEMPERATURE] {city}")
+        return "38 graus Celsius em {}".format(city)
 
     GET_TEMPERATURE_SCHEMA = {
         "type": "function",
@@ -490,7 +577,7 @@ if __name__ == "__main__":
     if API_KEY == "YOUR_OPENAI_API_KEY":
         print("Defina API_KEY no exemplo antes de executar.")
     else:
-        llm = OpenAI(
+        llm = OpenAIMTools(
             api_key=API_KEY,
             model="gpt-4o-mini",
             verbose=True
@@ -501,11 +588,18 @@ if __name__ == "__main__":
             func=get_temperature,
             schema=GET_TEMPERATURE_SCHEMA
         )
+        
+        llm.register_tool(
+            name="turn_onoff_led",
+            func=turn_onoff_led,
+            schema=TURN_ONOFF_LED_SCHEMA
+        )
 
         response = llm.chat(
-            prompt="Qual a temperatura em Sao Paulo?",
+            prompt="Se a temperatura em Sao Paulo for menor que 30 graus, ligue o led.",
             tools=llm.get_tools_schema()
         )
 
         print("Resposta final:")
         print(response["response"])
+
