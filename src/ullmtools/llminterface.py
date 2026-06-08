@@ -1,3 +1,11 @@
+class ChatState:
+    CALLING_LLM = 1
+    WAITING_LLM = 2
+    CALLING_TOOLS = 3
+    WAITING_TOOLS = 4
+    WAITING_RESPONSE = 5
+    RESPONSE_READY = 6
+
 class LLMInterface:
 
     def __init__(
@@ -16,11 +24,32 @@ class LLMInterface:
 
         self._tools = {}
         self._scheduler = None
+        self._state = ChatState.CALLING_LLM
+
+    @property
+    def state(self):
+        return self._state
 
     @property
     def messages(self):
 
         return self._messages
+    
+    def chat(
+            self,
+            prompt,
+            system_prompt=(
+                "You are a helpful assistant."
+            ),
+            max_tokens=100,
+            temperature=0.7,
+            stream=False,
+            callback=None,
+            tools=None
+        ):
+        raise NotImplementedError(
+            "Subclasses must implement the chat method to interact with specific LLMs and tools."
+        )
 
     def clear_history(self):
 

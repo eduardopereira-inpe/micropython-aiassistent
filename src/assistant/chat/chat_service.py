@@ -5,6 +5,7 @@ from assistant.display.display_callback import (
 )
 
 
+
 class ChatService:
 
     def __init__(
@@ -34,7 +35,6 @@ class ChatService:
         self.callback.buffer = ""
         self.callback.started_response = False
 
-        self.ui.thinking()
 
         prompt = (
             "Voce e um mini assistente para um display OLED 128x64. "
@@ -76,39 +76,5 @@ class ChatService:
                 )
 
         await asyncio.sleep(0.5)
-
-        # try:
-
-        #     await self.player.play_async(
-        #         [
-        #             'Star Trek intro',
-        #             80,
-        #             'NOTE_D4',
-        #             '-8',
-        #             'NOTE_G4',
-        #             '16',
-        #             'NOTE_C5',
-        #             '-4',
-        #             'NOTE_B4',
-        #             '8',
-        #             'NOTE_G4',
-        #             '-16',
-        #             'NOTE_E4',
-        #             '-16',
-        #             'NOTE_A4',
-        #             '-16',
-        #             'NOTE_D5',
-        #             '2'
-        #         ]
-        #     )
-
-        # except:
-        #     pass
-
-        if self.callback.started_response:
-
-            await self.ui.wait_message_cycle()
-
-        self.ui.idle()
 
         return result

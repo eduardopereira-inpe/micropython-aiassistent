@@ -1,2 +1,2 @@
-from assistant.chat.service import ChatService
+from assistant.chat.chat_service import ChatService
 

@@ -1,8 +1,8 @@
 import urequests
 import ujson
 
-from .interface import (
-    LLMInterface
+from .llminterface import (
+    LLMInterface, ChatState
 )
 
 
@@ -18,7 +18,8 @@ class OpenAI(
         base_url=(
             "https://api.openai.com/"
             "v1/chat/completions"
-        )
+        ), 
+        verbose=False
     ):
 
         super().__init__(
@@ -28,6 +29,11 @@ class OpenAI(
         self.api_key = api_key
         self.timeout = timeout
         self.base_url = base_url
+        self.verbose = verbose
+
+    def _log(self, *args):
+        if self.verbose:
+            print(*args)
 
     def chat(
         self,
@@ -42,6 +48,7 @@ class OpenAI(
         tools=None
     ):
 
+        self._state = ChatState.CALLING_LLM
         response = None
 
         try:
@@ -84,22 +91,22 @@ class OpenAI(
                 data[
                     "tool_choice"
                 ] = "auto"
-                
+
+            self._state = ChatState.WAITING_RESPONSE
             
-            
-            
-            
+            payload = b""
+
             try:
                 payload = ujson.dumps(data).encode(
                     "utf-8"
                     )
-                print("JSON OK")
+                self._log("JSON OK")
             except Exception as e:
-                print("JSON ERROR:", e)
+                self._log("JSON ERROR:", e)
                 
-            print(f"[openai] payload: {payload}")
+            self._log(f"[openai] payload: {payload}")
 
-            print(f"[openai] Type payload: {type(payload)}")
+            self._log(f"[openai] Type payload: {type(payload)}")
             
             headers = {
                 "Authorization":
@@ -118,6 +125,7 @@ class OpenAI(
                 data=payload
             )
 
+
             if (
                 response.status_code
                 != 200
@@ -134,7 +142,7 @@ class OpenAI(
                 response.json()
             )
             
-            print(f"[openai] result:\n{result}")
+            self._log(f"[openai] result:\n{result}")
 
             message = (
                 result["choices"][0]
@@ -150,10 +158,12 @@ class OpenAI(
                     "tool_calls"
                 )
             )
-            
+
             response.close()
 
             if tool_calls:
+
+                self._state = ChatState.CALLING_TOOLS
 
                 self.add_message(
                     "assistant",
@@ -215,17 +225,21 @@ class OpenAI(
                         False
                 }
                 
-                print("[openai] second messages")
-                print(self.messages)
+                self._log("[openai] second messages")
+                self._log(self.messages)
+                self._state = ChatState.WAITING_TOOLS
+
+
+                payload2 = b""
 
                 try:
                     payload2 = ujson.dumps(second_data).encode(
                     "utf-8"
                     )
-                    print("SECOND JSON OK")
-                    print(payload2)
+                    self._log("SECOND JSON OK")
+                    self._log(payload2)
                 except Exception as e:
-                    print("SECOND JSON ERROR:", e)
+                    self._log("SECOND JSON ERROR:", e)
                     
                 
                 headers = {
@@ -251,6 +265,8 @@ class OpenAI(
                     second_response
                     .json()
                 )
+
+                self._state = ChatState.RESPONSE_READY
                 
                 if "error" in second_result:
 
@@ -258,11 +274,11 @@ class OpenAI(
                         second_result["error"]
                     )
                 
-                print(
+                self._log(
                     "[openai] second_result:"
                 )
 
-                print(
+                self._log(
                     second_result
                 )
 
@@ -285,7 +301,6 @@ class OpenAI(
                     )
 
                 self.clear_history()
-
                 return {
                     "response":
                         final_content,
@@ -309,6 +324,8 @@ class OpenAI(
 
             self.clear_history()
 
+            self._state = ChatState.RESPONSE_READY
+
             return {
                 "response":
                     content,
@@ -327,5 +344,6 @@ class OpenAI(
         finally:
 
             if response:
+                self._state = ChatState.RESPONSE_READY
                 self.clear_history()
                 response.close()

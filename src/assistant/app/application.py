@@ -16,7 +16,7 @@ from assistant.display.emotion_display import (
     EmotionDisplay
 )
 
-from assistant.llm.openai import (
+from ullmtools.openai import (
     OpenAI
 )
 
@@ -33,7 +33,7 @@ from uvoiced.audio_service import (
     AudioServiceUIState
 )
 
-from assistant.chat.service import (
+from assistant.chat.chat_service import (
     ChatService
 )
 

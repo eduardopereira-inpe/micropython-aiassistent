@@ -1,7 +1,7 @@
 import urequests
 import ujson
 
-from .interface import (
+from .llminterface import (
     LLMInterface
 )
 
