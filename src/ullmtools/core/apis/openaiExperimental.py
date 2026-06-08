@@ -36,114 +36,97 @@ class OpenAI(
         if self.verbose:
             print(msg)
 
-    def chat(
+    def _build_request_data(
         self,
-        prompt,
-        system_prompt=(
-            "You are a helpful assistant."
-        ),
-        max_tokens=100,
-        temperature=0.7,
-        stream=False,
-        callback=None,
-        tools=None
+        max_tokens,
+        temperature,
+        tools
     ):
 
-        self._state = ChatState.CALLING_LLM
-        response = None
+        data = {
+            "model":
+                self.model_name,
+            "messages":
+                self.messages,
+            "max_tokens":
+                max_tokens,
+            "temperature":
+                temperature,
+            "stream":
+                False
+        }
+
+        if tools:
+
+            data["tools"] = tools
+            data["tool_choice"] = "auto"
+
+        return data
+
+    def _post_chat_completion(
+        self,
+        data,
+        log_prefix=""
+    ):
+
+        payload = b""
 
         try:
 
-            gc.collect()
-
-            if not self.messages:
-
-                self.add_system_message(
-                    system_prompt
+            payload = (
+                ujson.dumps(
+                    data
+                ).encode(
+                    "utf-8"
                 )
-
-            self.add_user_message(
-                prompt
             )
 
-            data = {
-                "model":
-                    self.model_name,
-                "messages":
-                    self.messages,
-                "max_tokens":
-                    max_tokens,
-                "temperature":
-                    temperature,
-                "stream":
-                    False
-            }
-
-            if tools:
-
-                data["tools"] = (
-                    tools
+            self._log(
+                "{}JSON OK".format(
+                    log_prefix
                 )
+            )
 
-                data[
-                    "tool_choice"
-                ] = "auto"
-
-            self._state = ChatState.WAITING_RESPONSE
-
-            payload = b""
-
-            try:
-
-                payload = (
-                    ujson.dumps(
-                        data
-                    ).encode(
-                        "utf-8"
-                    )
+            self._log(
+                "[openai] {}payload size={}".format(
+                    log_prefix,
+                    len(payload)
                 )
+            )
 
-                del data
+        except Exception as e:
 
-                gc.collect()
-
-                self._log("JSON OK")
-                self._log(
-                    "[openai] payload size={}".format(
-                        len(payload)
-                    )
+            self._log(
+                "{}JSON ERROR: {}".format(
+                    log_prefix,
+                    e
                 )
+            )
 
-            except Exception as e:
+            raise
 
-                self._log(
-                    "JSON ERROR: {}".format(
-                        e
-                    )
-                )
+        headers = {
+            "Authorization":
+                "Bearer {}".format(
+                    self.api_key
+                ),
+            "Content-Type":
+                "application/json",
+            "Content-Length":
+                str(len(payload))
+        }
 
-            headers = {
-                "Authorization":
-                    "Bearer {}".format(
-                        self.api_key
-                    ),
-                "Content-Type":
-                    "application/json",
-                "Content-Length":
-                    str(len(payload))
-            }
+        gc.collect()
 
-            gc.collect()
+        response = None
+
+        try:
 
             response = urequests.post(
                 self.base_url,
                 headers=headers,
                 data=payload
             )
-
-            del payload
-
-            gc.collect()
 
             if (
                 response.status_code
@@ -165,404 +148,230 @@ class OpenAI(
                 "[openai] result received"
             )
 
-            message = (
-                result["choices"][0]
-                ["message"]
+            return result
+
+        finally:
+
+            del payload
+
+            if response:
+                try:
+                    response.close()
+                except:
+                    pass
+
+            gc.collect()
+
+    def _parse_tool_arguments(
+        self,
+        tool_call
+    ):
+
+        raw_arguments = (
+            tool_call[
+                "function"
+            ].get(
+                "arguments",
+                "{}"
+            )
+        )
+
+        if isinstance(
+            raw_arguments,
+            str
+        ):
+
+            if not raw_arguments:
+                return {}
+
+            return ujson.loads(
+                raw_arguments
             )
 
-            tool_calls = (
-                message.get(
-                    "tool_calls"
+        if raw_arguments is None:
+            return {}
+
+        return raw_arguments
+
+    def _execute_tool_calls(
+        self,
+        tool_calls
+    ):
+
+        self._state = (
+            ChatState.CALLING_TOOLS
+        )
+
+        self.add_message(
+            "assistant",
+            None,
+            tool_calls=tool_calls
+        )
+
+        for tool_call in tool_calls:
+
+            function_name = (
+                tool_call[
+                    "function"
+                ]["name"]
+            )
+
+            arguments = (
+                self._parse_tool_arguments(
+                    tool_call
                 )
             )
 
-            response.close()
-            response = None
+            tool_result = (
+                self.execute_tool(
+                    function_name,
+                    arguments
+                )
+            )
 
-            if tool_calls:
+            self.add_tool_message(
+                content=tool_result,
+                tool_call_id=(
+                    tool_call[
+                        "id"
+                    ]
+                )
+            )
 
-                self._state = (
-                    ChatState.CALLING_TOOLS
+            gc.collect()
+
+    def chat(
+        self,
+        prompt,
+        system_prompt=(
+            "You are a helpful assistant."
+        ),
+        max_tokens=100,
+        temperature=0.7,
+        stream=False,
+        callback=None,
+        tools=None
+    ):
+
+        self._state = ChatState.CALLING_LLM
+        max_tool_rounds = 5
+
+        try:
+
+            gc.collect()
+
+            if not self.messages:
+
+                self.add_system_message(
+                    system_prompt
                 )
 
-                self.add_message(
-                    "assistant",
-                    None,
-                    tool_calls=tool_calls
-                )
+            self.add_user_message(
+                prompt
+            )
 
-                for tool_call in (
-                    tool_calls
-                ):
+            for round_index in range(
+                max_tool_rounds + 1
+            ):
 
-                    function_name = (
-                        tool_call[
-                            "function"
-                        ]["name"]
+                if round_index == 0:
+                    self._state = (
+                        ChatState.WAITING_RESPONSE
+                    )
+                    log_prefix = ""
+                else:
+                    self._state = (
+                        ChatState.WAITING_TOOLS
+                    )
+                    log_prefix = "ROUND{} ".format(
+                        round_index + 1
                     )
 
-                    arguments = (
-                        ujson.loads(
-                            tool_call[
-                                "function"
-                            ][
-                                "arguments"
-                            ]
-                        )
-                    )
-
-                    tool_result = (
-                        self.execute_tool(
-                            function_name,
-                            arguments
-                        )
-                    )
-
-                    self.add_tool_message(
-                        content=(
-                            tool_result
-                        ),
-                        tool_call_id=(
-                            tool_call[
-                                "id"
-                            ]
-                        )
-                    )
-
-                    gc.collect()
-
-                second_data = {
-                    "model":
-                        self.model_name,
-                    "messages":
-                        self.messages,
-                    "max_tokens":
+                data = (
+                    self._build_request_data(
                         max_tokens,
-                    "temperature":
                         temperature,
-                    "stream":
-                        False
-                }
-
-                if tools:
-
-                    second_data["tools"] = (
                         tools
                     )
-
-                    second_data[
-                        "tool_choice"
-                    ] = "auto"
-
-                self._state = (
-                    ChatState.WAITING_TOOLS
                 )
 
-                payload2 = b""
-
-                try:
-
-                    payload2 = (
-                        ujson.dumps(
-                            second_data
-                        ).encode(
-                            "utf-8"
-                        )
-                    )
-
-                    del second_data
-
-                    gc.collect()
-
-                    self._log(
-                        "SECOND JSON OK"
-                    )
-
-                    self._log(
-                        "[openai] payload2 size={}".format(
-                            len(payload2)
-                        )
-                    )
-
-                except Exception as e:
-
-                    self._log(
-                        "SECOND JSON ERROR: {}".format(
-                            e
-                        )
-                    )
-
-                headers = {
-                    "Authorization":
-                        "Bearer {}".format(
-                            self.api_key
-                        ),
-                    "Content-Type":
-                        "application/json",
-                    "Content-Length":
-                        str(len(payload2))
-                }
-
-                gc.collect()
-
-                second_response = (
-                    urequests.post(
-                        self.base_url,
-                        headers=headers,
-                        data=payload2
+                result = (
+                    self._post_chat_completion(
+                        data,
+                        log_prefix=log_prefix
                     )
                 )
 
-                del payload2
-
-                gc.collect()
-
-                second_result = (
-                    second_response
-                    .json()
-                )
-
-                second_response.close()
-
-                self._state = (
-                    ChatState.RESPONSE_READY
-                )
-
-                if (
-                    "error"
-                    in second_result
-                ):
+                if "error" in result:
 
                     raise Exception(
-                        second_result[
+                        result[
                             "error"
                         ]
                     )
 
-                second_message = (
-                    second_result[
-                        "choices"
-                    ][0][
-                        "message"
-                    ]
+                message = (
+                    result["choices"][0]
+                    ["message"]
                 )
 
-                second_tool_calls = (
-                    second_message.get(
+                tool_calls = (
+                    message.get(
                         "tool_calls"
                     )
                 )
 
-                if second_tool_calls:
+                if tool_calls:
 
-                    self.add_message(
-                        "assistant",
-                        None,
-                        tool_calls=(
-                            second_tool_calls
-                        )
-                    )
-
-                    for tool_call in (
-                        second_tool_calls
-                    ):
-
-                        function_name = (
-                            tool_call[
-                                "function"
-                            ]["name"]
-                        )
-
-                        arguments = (
-                            ujson.loads(
-                                tool_call[
-                                    "function"
-                                ][
-                                    "arguments"
-                                ]
-                            )
-                        )
-
-                        tool_result = (
-                            self.execute_tool(
-                                function_name,
-                                arguments
-                            )
-                        )
-
-                        self.add_tool_message(
-                            content=(
-                                tool_result
-                            ),
-                            tool_call_id=(
-                                tool_call[
-                                    "id"
-                                ]
-                            )
-                        )
-
-                        gc.collect()
-
-                    third_data = {
-                        "model":
-                            self.model_name,
-                        "messages":
-                            self.messages,
-                        "max_tokens":
-                            max_tokens,
-                        "temperature":
-                            temperature,
-                        "stream":
-                            False
-                    }
-
-                    if tools:
-
-                        third_data[
-                            "tools"
-                        ] = tools
-
-                        third_data[
-                            "tool_choice"
-                        ] = "auto"
-
-                    payload3 = (
-                        ujson.dumps(
-                            third_data
-                        ).encode(
-                            "utf-8"
-                        )
-                    )
-
-                    del third_data
-
-                    gc.collect()
-
-                    headers = {
-                        "Authorization":
-                            "Bearer {}".format(
-                                self.api_key
-                            ),
-                        "Content-Type":
-                            "application/json",
-                        "Content-Length":
-                            str(
-                                len(
-                                    payload3
-                                )
-                            )
-                    }
-
-                    third_response = (
-                        urequests.post(
-                            self.base_url,
-                            headers=headers,
-                            data=payload3
-                        )
-                    )
-
-                    del payload3
-
-                    gc.collect()
-
-                    third_result = (
-                        third_response
-                        .json()
-                    )
-
-                    third_response.close()
-
-                    if (
-                        "error"
-                        in third_result
-                    ):
+                    if round_index >= max_tool_rounds:
 
                         raise Exception(
-                            third_result[
-                                "error"
-                            ]
+                            "Tool-calling exceeded {} rounds".format(
+                                max_tool_rounds
+                            )
                         )
 
-                    final_content = (
-                        third_result[
-                            "choices"
-                        ][0][
-                            "message"
-                        ].get(
-                            "content",
-                            ""
-                        )
+                    self._execute_tool_calls(
+                        tool_calls
                     )
 
-                    raw_result = (
-                        third_result
-                    )
+                    continue
 
-                else:
-
-                    final_content = (
-                        second_message.get(
-                            "content",
-                            ""
-                        )
+                content = (
+                    message.get(
+                        "content",
+                        ""
                     )
-
-                    raw_result = (
-                        second_result
-                    )
+                )
 
                 self.add_assistant_message(
-                    final_content
+                    content
                 )
 
                 if callback:
 
                     callback(
-                        final_content
+                        content
                     )
 
                 self.clear_history()
 
                 gc.collect()
 
+                self._state = (
+                    ChatState.RESPONSE_READY
+                )
+
                 return {
                     "response":
-                        final_content,
+                        content,
                     "raw":
-                        raw_result
+                        result
                 }
 
-            content = (
-                message.get(
-                    "content",
-                    ""
-                )
+            raise Exception(
+                "No final assistant response returned"
             )
-
-            self.add_assistant_message(
-                content
-            )
-
-            if callback:
-
-                callback(
-                    content
-                )
-
-            self.clear_history()
-
-            gc.collect()
-
-            self._state = (
-                ChatState.RESPONSE_READY
-            )
-
-            return {
-                "response":
-                    content,
-                "raw":
-                    result
-            }
 
         except Exception as error:
 
@@ -576,17 +385,127 @@ class OpenAI(
 
             gc.collect()
 
-            if response:
 
-                self._state = (
-                    ChatState.RESPONSE_READY
-                )
 
-                self.clear_history()
 
-                try:
-                    response.close()
-                except:
-                    pass
+import gc
+import network
+import re
+import time
+import ntptime
 
-                gc.collect()
+import urequests
+import ujson
+
+def _log(msg, verbose):
+    if verbose is True:
+        print(msg)
+# =========================================================
+# WiFi
+# =========================================================
+
+
+def conectar_wifi(ssid, password):
+
+    wlan = network.WLAN(network.STA_IF)
+    wlan.active(True)
+
+    if not wlan.isconnected():
+
+        print(f"Conectando em: {ssid}")
+
+        wlan.connect(ssid, password)
+
+        tentativas = 0
+
+        while not wlan.isconnected() and tentativas < 10:
+            time.sleep(1)
+            tentativas += 1
+            print(".", end="")
+
+    if wlan.isconnected():
+
+        print("\nWiFi conectado")
+        print(wlan.ifconfig())
+        time.sleep(1)
+        
+        try:        
+            ntptime.settime()
+            print("Local time after synchronization：%s" %str(time.localtime()))
+            print(time.gmtime())
+            print(time.time())
+        except Exception as error:
+            print(f"[wifi] NTPTime sinc fail: {error}")
+            
+        
+
+
+        return True
+
+    print("\nFalha no WiFi")
+
+    return False
+
+    
+        
+    
+
+if __name__ == "__main__":
+    
+    # SSID_REDE = "NOTE-646635 1412"
+    # SENHA_REDE = "798-y6N1"
+    SSID_REDE = "RedeGamer"
+    SENHA_REDE = "Vick0508"
+    
+    print(f"Conectando na rede: {SSID_REDE}")
+    conectar_wifi(
+        SSID_REDE,
+        SENHA_REDE
+    )
+    
+
+    def get_temperature(city):
+        return "28 graus Celsius em {}".format(city)
+
+    GET_TEMPERATURE_SCHEMA = {
+        "type": "function",
+        "function": {
+            "name": "get_temperature",
+            "description": "Retorna a temperatura atual de uma cidade.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {
+                        "type": "string",
+                        "description": "Nome da cidade"
+                    }
+                },
+                "required": ["city"]
+            }
+        }
+    }
+
+    API_KEY = "YOUR_OPENAI_API_KEY"
+
+    if API_KEY == "YOUR_OPENAI_API_KEY":
+        print("Defina API_KEY no exemplo antes de executar.")
+    else:
+        llm = OpenAI(
+            api_key=API_KEY,
+            model="gpt-4o-mini",
+            verbose=True
+        )
+
+        llm.register_tool(
+            name="get_temperature",
+            func=get_temperature,
+            schema=GET_TEMPERATURE_SCHEMA
+        )
+
+        response = llm.chat(
+            prompt="Qual a temperatura em Sao Paulo?",
+            tools=llm.get_tools_schema()
+        )
+
+        print("Resposta final:")
+        print(response["response"])
