@@ -36,6 +36,10 @@ class MicrophoneManager:
         self._microphone = None
         self.verbose = verbose
 
+    def _log(self, msg) -> None:
+        if self.verbose:
+            print(msg)
+
     @property
     def microphone(self) -> INMP441:
         """Return a ready-to-use microphone instance.
@@ -80,8 +84,7 @@ class MicrophoneManager:
         try:
             self._microphone.close()
         except Exception:
-            if self.verbose:
-                print(f"[{self._NAME}] Failed to close microphone")
+            self._log(f"[{self._NAME}] Failed to close microphone")
 
         self._microphone = None
         gc.collect()

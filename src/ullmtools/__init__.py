@@ -1,5 +1,6 @@
-from .openai import OpenAI
-from .ollama import Ollama
+from .core.apis.openai import OpenAI
+from .core.apis.ollama import Ollama
+from .core.chat.chat_service import ChatService
 
 from .tools.tools import (
     get_local_datetime,
@@ -22,6 +23,7 @@ from .tools.schedule_event import create_schedule_event_tool
 __all__ = [
     "OpenAI",
     "Ollama",
+    "ChatService",
     "get_local_datetime",
     "get_local_time",
     "turn_onoff_led",

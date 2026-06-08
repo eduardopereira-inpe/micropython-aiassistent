@@ -33,6 +33,10 @@ class TranscriberClientManager(TranscriberClientManagerInterface):
         self._client = None
         self._attempts = 2
 
+    def _log(self, msg) -> None:
+        if self.verbose:
+            print(msg)
+
     def create_client(self) -> None:
         """Create and store a new OpenAI stream client instance."""
 
@@ -69,7 +73,7 @@ class TranscriberClientManager(TranscriberClientManagerInterface):
 
             try:
 
-                print(
+                self._log(
                     f"[{self._NAME}] transcribe_attempt={attempt + 1}"
                 )
 
@@ -97,11 +101,9 @@ class TranscriberClientManager(TranscriberClientManagerInterface):
 
                 last_error = error
 
-                if self.verbose:
-
-                    print(
-                        f"[{self._NAME}] transcribe_error attempt={attempt + 1}, error={error}"
-                    )
+                self._log(
+                    f"[{self._NAME}] transcribe_error attempt={attempt + 1}, error={error}"
+                )
 
                 gc.collect()
 

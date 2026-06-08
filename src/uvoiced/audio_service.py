@@ -99,6 +99,10 @@ class AudioService:
 
         self.audio_service_state = AudioServiceUIState.IDLE
 
+    def _log(self, msg):
+        if self.verbose:
+            print(msg)
+
 
     def _transcribe_wav(self) -> str:
         """Transcribe the previously recorded WAV file.
@@ -133,8 +137,7 @@ class AudioService:
             The transcribed text when available, otherwise None.
         """
 
-        if self.verbose:
-            print(f"[{self._NAME}] Starting async transcription")
+        self._log(f"[{self._NAME}] Starting async transcription")
 
         if self.audio_service_state != AudioServiceUIState.TRANSCRIBING:
             self.audio_service_state = AudioServiceUIState.TRANSCRIBING
@@ -142,8 +145,7 @@ class AudioService:
 
             await asyncio.sleep_ms(10)            
 
-            if self.verbose:            
-                print(f"[{self._NAME}] Texto gerado: {text} {text == ''}")
+            self._log(f"[{self._NAME}] Texto gerado: {text} {text == ''}")
 
             if text:
                 self.audio_service_state = AudioServiceUIState.IDLE
@@ -165,8 +167,7 @@ class AudioService:
         
         is_button_pressed = self.button.value() == 0
 
-        if self.verbose:
-            print(f"[{self._NAME}] is_button_pressed = {is_button_pressed}")
+        self._log(f"[{self._NAME}] is_button_pressed = {is_button_pressed}")
 
         if (self.voice_activity_detector.is_above_background and USE_SOUND_DETECTED) or is_button_pressed:   
 

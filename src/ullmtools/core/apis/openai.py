@@ -31,9 +31,9 @@ class OpenAI(
         self.base_url = base_url
         self.verbose = verbose
 
-    def _log(self, *args):
+    def _log(self, msg):
         if self.verbose:
-            print(*args)
+            print(msg)
 
     def chat(
         self,
@@ -102,7 +102,7 @@ class OpenAI(
                     )
                 self._log("JSON OK")
             except Exception as e:
-                self._log("JSON ERROR:", e)
+                self._log(f"JSON ERROR: {e}")
                 
             self._log(f"[openai] payload: {payload}")
 
@@ -239,7 +239,7 @@ class OpenAI(
                     self._log("SECOND JSON OK")
                     self._log(payload2)
                 except Exception as e:
-                    self._log("SECOND JSON ERROR:", e)
+                    self._log(f"SECOND JSON ERROR: {e}")
                     
                 
                 headers = {

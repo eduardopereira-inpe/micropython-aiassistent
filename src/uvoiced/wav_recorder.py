@@ -31,6 +31,10 @@ class WavRecorder:
         self.wav_file_path = wav_file_path
         self.verbose = verbose
 
+    def _log(self, msg):
+        if self.verbose:
+            print(msg)
+
     async def record(self, duration_seconds: float) -> None:
         """Record microphone audio for a fixed duration.
 
@@ -53,11 +57,10 @@ class WavRecorder:
 
         with open(self.wav_file_path, "wb") as f:
 
-            if self.verbose:
-                print(
-                    f"[{self._NAME}] Recording to {self.wav_file_path}"
-                    f"for {duration_seconds} seconds..."
-                    )
+            self._log(
+                f"[{self._NAME}] Recording to {self.wav_file_path}"
+                f"for {duration_seconds} seconds..."
+            )
 
             f.seek(44)
 

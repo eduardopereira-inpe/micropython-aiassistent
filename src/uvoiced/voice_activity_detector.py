@@ -42,6 +42,10 @@ class VoiceActivityDetector:
         self._is_sound_detected = False
         self._last_sound_time = utime.ticks_ms()
 
+    def _log(self, msg) -> None:
+        if self.verbose:
+            print(msg)
+
     @property
     def is_above_background(self) -> bool:
         """Return whether sound is currently considered detected.
@@ -90,8 +94,7 @@ class VoiceActivityDetector:
             for _ in range(self._NMEAN)
         ]) / self._NMEAN
 
-        if self.verbose:
-            print(f"[{self._NAME}] Sample Background: {sound_samp}")
+        self._log(f"[{self._NAME}] Sample Background: {sound_samp}")
 
         is_above = True if sound_samp > self._MEAN_THRESHOLD else False
 
@@ -112,10 +115,9 @@ class VoiceActivityDetector:
             if elapsed > self._SOUND_TIMEOUT_MS:
                 self._is_sound_detected = False
 
-        if self.verbose:
-            print(
-                f"[{self._NAME}] is_above_background ="
-                f"{self._is_sound_detected}"
-            )
+        self._log(
+            f"[{self._NAME}] is_above_background ="
+            f"{self._is_sound_detected}"
+        )
 
         return self._is_sound_detected

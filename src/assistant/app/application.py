@@ -16,7 +16,7 @@ from assistant.display.emotion_display import (
     EmotionDisplay
 )
 
-from ullmtools.openai import (
+from ullmtools.core.apis.openai import (
     OpenAI
 )
 
@@ -164,6 +164,10 @@ class AssistantApplication:
         )
         self._ui_current_state = None
 
+    def _log(self, msg):
+        if self.verbose:
+            print(msg)
+
     async def initialize(self):
 
         await self.ui.start()
@@ -190,7 +194,7 @@ class AssistantApplication:
              
     async def audio_monitor(self):
         
-        print(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
+        self._log(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
         
         if self.audio.audio_service_state == AudioServiceUIState.IDLE:
 
@@ -204,8 +208,7 @@ class AssistantApplication:
             self._ui_current_state = 2
             self.ui.listening()
             
-            if self.verbose:
-                print(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
+            self._log(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
 
             await asyncio.sleep_ms(100)
 
@@ -213,8 +216,7 @@ class AssistantApplication:
             self._ui_current_state = 3
             self.ui.transcribing()
             
-            if self.verbose:
-                print(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
+            self._log(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
 
             await asyncio.sleep_ms(100)
             

@@ -1,8 +1,4 @@
-import asyncio
-
-from assistant.display.display_callback import (
-    DisplayCallback
-)
+import uasyncio as asyncio
 
 
 
@@ -10,21 +6,39 @@ class ChatService:
 
     def __init__(
         self,
-        llm,
-        ui,
-        player,
-        display
+        llm,  
+        callback,
+        verbose=False
     ):
 
         self.llm = llm
-        self.ui = ui
-        self.player = player
+        self.callback = callback
+        self.verbose = verbose
 
-        self.callback = (
-            DisplayCallback(
-                display
-            )
+    def _log(self, msg):
+        if self.verbose:
+            print(msg)
+
+    def system_prompt(self) -> str:
+        systemprompt = (
+            "Voce e um mini assistente para um display OLED 128x64. "
+            "Sua resposta sera exibida em uma unica linha com texto corrido. "
+            "Responda de forma curta, clara e natural. "
+            "Nao use acentuacao. "
+            "Nao use markdown. "
+            "Nao use emojis. "
+            "Nao use listas. "
+            "Use no maximo uma frase curta. "
+      
+            "\nAo agendar uma ferramenta utilize exatamente"
+            "o nome registrado na lista de tools."
+            "Exemplo: turn_onoff_led\n"
+            "Nao utilize prefixos como:"
+            "\n functions."
+            "\n tools."
+            "\n assistant."
         )
+        return systemprompt
 
     async def ask(
         self,
@@ -35,24 +49,12 @@ class ChatService:
         self.callback.buffer = ""
         self.callback.started_response = False
 
+        systemprompt = self.system_prompt()
 
         prompt = (
-            "Voce e um mini assistente para um display OLED 128x64. "
-            "Sua resposta sera exibida em uma unica linha com texto corrido. "
-            "Responda de forma curta, clara e natural. "
-            "Nao use acentuacao. "
-            "Nao use markdown. "
-            "Nao use emojis. "
-            "Nao use listas. "
-            "Use no maximo uma frase curta. "
+            f"{systemprompt}"
+            "\n" 
             f"Pergunta do usuario: {question}"
-            "\nAo agendar uma ferramenta utilize exatamente"
-            "o nome registrado na lista de tools."
-            "Exemplo: turn_onoff_led\n"
-            "Nao utilize prefixos como:"
-            "\n functions."
-            "\n tools."
-            "\n assistant."
         )
 
         result = self.llm.chat(
