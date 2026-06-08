@@ -25,8 +25,11 @@ from ullmtools import (
 )
 
 from ubuzzer.player import (
-    BuzzerPlayer
+    BuzzerPlayer, 
+    
 )
+
+
 
 from assistant.ui.ui import (
     AssistantUI
@@ -287,7 +290,35 @@ class AssistantApplication:
                 
             if self.callback.started_response:
 
+                play_response_task = asyncio.create_task(
+                    self.player.play_async(
+                        [
+                    'Star Trek intro',
+                    80,
+                    'NOTE_D4',
+                    '-8',
+                    'NOTE_G4',
+                    '16',
+                    'NOTE_C5',
+                    '-4',
+                    'NOTE_B4',
+                    '8',
+                    'NOTE_G4',
+                    '-16',
+                    'NOTE_E4',
+                    '-16',
+                    'NOTE_A4',
+                    '-16',
+                    'NOTE_D5',
+                    '2'
+                ]
+                    )
+                )
+
+                await play_response_task
+
                 await self.ui.wait_message_cycle()
+   
 
         self.shutdown()
 
