@@ -1,48 +1,97 @@
 import urequests
 import ujson
 
-# =========================================================
-# Ollama Client
-# =========================================================
+from .interface import (
+    LLMInterface
+)
 
-class Ollama:
+
+class Ollama(
+    LLMInterface
+):
 
     def __init__(
         self,
         url="http://192.168.137.1",
         port="11434",
         model="gemma4:e2b",
-        timeout=10,
+        timeout=10
     ):
 
-        self.model = model
+        super().__init__(
+            model_name=model
+        )
+
         self.timeout = timeout
 
-        self._generate_url = f"{url}:{port}/api/generate"
+        self._chat_url = (
+            "{}:{}/api/chat".format(
+                url,
+                port
+            )
+        )
 
     def chat(
         self,
         prompt,
-        stream=True,
-        callback=None
+        system_prompt=(
+            "You are a helpful assistant."
+        ),
+        stream=False,
+        callback=None,
+        tools=None
     ):
-
-        data = {
-            "model": self.model,
-            "prompt": prompt,
-            "stream": stream
-        }
 
         response = None
 
         try:
 
-            response = urequests.post(
-                self._generate_url,
-                json=data
+            # ----------------------------
+            # Histórico
+            # ----------------------------
+
+            if not self.messages:
+
+                self.add_system_message(
+                    system_prompt
+                )
+
+            self.add_user_message(
+                prompt
             )
 
-            response.raw.settimeout(self.timeout)
+            if tools:
+                stream = False
+
+            data = {
+                "model":
+                    self.model_name,
+                "messages":
+                    self.messages,
+                "stream":
+                    stream
+            }
+
+            if tools:
+
+                data["tools"] = (
+                    tools
+                )
+
+            response = (
+                urequests.post(
+                    self._chat_url,
+                    json=data
+                )
+            )
+
+            response.raw.settimeout(
+                self.timeout
+            )
+
+            # ----------------------------
+            # Streaming
+            # ----------------------------
 
             if stream:
 
@@ -50,51 +99,220 @@ class Ollama:
 
                 while True:
 
-                    line = response.raw.readline()
+                    line = (
+                        response.raw
+                        .readline()
+                    )
 
                     if not line:
                         break
 
                     try:
 
-                        json_line = ujson.loads(line)
+                        json_line = (
+                            ujson.loads(
+                                line
+                            )
+                        )
 
-                        if "response" in json_line:
+                        message = (
+                            json_line.get(
+                                "message",
+                                {}
+                            )
+                        )
 
-                            token = json_line["response"]
+                        token = (
+                            message.get(
+                                "content",
+                                ""
+                            )
+                        )
 
-                            full_response += token
+                        if token:
+
+                            full_response += (
+                                token
+                            )
 
                             if callback:
-                                callback(token)
-                            else:
-                                print(token, end="")
 
-                        if json_line.get("done", False):
+                                callback(
+                                    token
+                                )
+
+                        if (
+                            json_line.get(
+                                "done",
+                                False
+                            )
+                        ):
                             break
 
                     except:
                         pass
 
-                print()
-
-                response.close()
+                self.add_assistant_message(
+                    full_response
+                )
 
                 return {
-                    "response": full_response
+                    "response":
+                        full_response
                 }
 
-            result = response.json()
+            # ----------------------------
+            # Resposta normal
+            # ----------------------------
 
+            result = (
+                response.json()
+            )
+
+            message = (
+                result.get(
+                    "message",
+                    {}
+                )
+            )
+
+            tool_calls = (
+                message.get(
+                    "tool_calls"
+                )
+            )
+            
             response.close()
 
-            return result
+            # ----------------------------
+            # Tool Calling
+            # ----------------------------
+
+            if tool_calls:
+
+                self.add_message(
+                    "assistant",
+                    None,
+                    tool_calls=tool_calls
+                )
+
+                for tool_call in (
+                    tool_calls
+                ):
+
+                    function_name = (
+                        tool_call[
+                            "function"
+                        ]["name"]
+                    )
+
+                    arguments = (
+                        tool_call[
+                            "function"
+                        ].get(
+                            "arguments",
+                            {}
+                        )
+                    )
+
+                    tool_result = (
+                        self.execute_tool(
+                            function_name,
+                            arguments
+                        )
+                    )
+
+                    self.add_tool_message(
+                        content=
+                            tool_result,
+                        name=
+                            function_name
+                    )
+
+                second_data = {
+                    "model":
+                        self.model_name,
+                    "messages":
+                        self.messages,
+                    "stream":
+                        False
+                }
+
+                second_response = (
+                    urequests.post(
+                        self._chat_url,
+                        json=second_data
+                    )
+                )
+
+                second_result = (
+                    second_response
+                    .json()
+                )
+
+                second_response.close()
+
+                final_content = (
+                    second_result
+                    ["message"]
+                    ["content"]
+                )
+
+                self.add_assistant_message(
+                    final_content
+                )
+
+                if callback:
+
+                    callback(
+                        final_content
+                    )
+
+                return {
+                    "response":
+                        final_content,
+                    "raw":
+                        second_result
+                }
+
+            # ----------------------------
+            # Resposta comum
+            # ----------------------------
+
+            content = (
+                message.get(
+                    "content",
+                    ""
+                )
+            )
+
+            self.add_assistant_message(
+                content
+            )
+
+            if callback:
+
+                callback(
+                    content
+                )
+
+            return {
+                "response":
+                    content,
+                "raw":
+                    result
+            }
 
         except Exception as error:
 
-            raise Exception(f"Ollama Error: {error}")
+            raise Exception(
+                "Ollama Error: {}".format(
+                    error
+                )
+            )
 
         finally:
 
             if response:
+
                 response.close()

@@ -15,7 +15,7 @@ class EmotionDisplay:
 
     MAX_MESSAGE_SIZE = 120
     TEXT_SCROLL_STEP = 2
-    FRAME_DELAY_MS = 50
+    FRAME_DELAY_MS = 30
 
     def __init__(self, scl_pin=22, sda_pin=21):
 
@@ -42,32 +42,32 @@ class EmotionDisplay:
         self.blink_counter = 0
         self.z_offset = 0
 
+        # animação global
+        self.anim_frame = 0
+
+        # thinking
+        self.think_frame = 0
+
     # =====================================================
     # Public API
     # =====================================================
 
     def set_emotion(self, emotion):
-
         self.current_emotion = emotion
 
     def idle(self):
-
         self.set_emotion("idle")
 
     def think(self):
-
-        self.set_emotion("surprised")
+        self.set_emotion("thinking")
 
     def talk(self):
-
         self.set_emotion("happy")
 
     def error(self):
-
         self.set_emotion("sad")
 
     def sleep(self):
-
         self.set_emotion("sleepy")
 
     def set_message(self, message):
@@ -80,11 +80,9 @@ class EmotionDisplay:
             self.message_cycle_done = False
 
     def append_message(self, text):
-
         self.set_message(self.message + text)
 
     def clear_message(self):
-
         self.message = ""
         self.scroll_x = self.WIDTH
         self.message_cycle_done = True
@@ -95,8 +93,17 @@ class EmotionDisplay:
             await asyncio.sleep_ms(20)
 
     def stop(self):
-
         self.running = False
+
+    # =====================================================
+    # Animation Helpers
+    # =====================================================
+
+    def face_offset_y(self):
+        return int(math.sin(self.anim_frame * 0.08) * 2)
+
+    def pupil_offset_x(self):
+        return int(math.sin(self.anim_frame * 0.03) * 2)
 
     # =====================================================
     # Drawing Helpers
@@ -104,8 +111,8 @@ class EmotionDisplay:
 
     def fill_circle(self, x0, y0, r, color):
 
-        for y in range(-r, r):
-            for x in range(-r, r):
+        for y in range(-r, r + 1):
+            for x in range(-r, r + 1):
 
                 if x * x + y * y <= r * r:
                     self.oled.pixel(x0 + x, y0 + y, color)
@@ -127,101 +134,387 @@ class EmotionDisplay:
 
     def draw_idle(self):
 
-        if self.blink_counter >= 25:
+        offset = self.face_offset_y()
+        look_x = self.pupil_offset_x()
 
-            # blink
-            self.oled.hline(28, self.FACE_CENTER_Y, 24, 1)
-            self.oled.hline(76, self.FACE_CENTER_Y, 24, 1)
+        blink_phase = self.blink_counter
 
-            self.draw_arc(64, 42, 10, 0, 180, 1)
+        # aberto
+        if blink_phase < 120:
 
-            self.blink_counter += 1
+            self.fill_circle(
+                40,
+                self.FACE_CENTER_Y + offset,
+                12,
+                1
+            )
 
-            if self.blink_counter > 27:
-                self.blink_counter = 0
+            self.fill_circle(
+                88,
+                self.FACE_CENTER_Y + offset,
+                12,
+                1
+            )
+
+            self.fill_circle(
+                40 + look_x,
+                self.FACE_CENTER_Y + offset,
+                4,
+                0
+            )
+
+            self.fill_circle(
+                88 + look_x,
+                self.FACE_CENTER_Y + offset,
+                4,
+                0
+            )
+
+        # semi fechado
+        elif blink_phase < 124:
+
+            self.oled.fill_rect(
+                28,
+                self.FACE_CENTER_Y - 3 + offset,
+                24,
+                6,
+                1
+            )
+
+            self.oled.fill_rect(
+                76,
+                self.FACE_CENTER_Y - 3 + offset,
+                24,
+                6,
+                1
+            )
+
+        # fechado
+        elif blink_phase < 128:
+
+            self.oled.hline(
+                28,
+                self.FACE_CENTER_Y + offset,
+                24,
+                1
+            )
+
+            self.oled.hline(
+                76,
+                self.FACE_CENTER_Y + offset,
+                24,
+                1
+            )
+
+        # semi fechado abrindo
+        elif blink_phase < 132:
+
+            self.oled.fill_rect(
+                28,
+                self.FACE_CENTER_Y - 3 + offset,
+                24,
+                6,
+                1
+            )
+
+            self.oled.fill_rect(
+                76,
+                self.FACE_CENTER_Y - 3 + offset,
+                24,
+                6,
+                1
+            )
 
         else:
+            self.blink_counter = 0
 
-            # eyes
-            self.fill_circle(40, self.FACE_CENTER_Y, 12, 1)
-            self.fill_circle(88, self.FACE_CENTER_Y, 12, 1)
+        self.draw_arc(
+            64,
+            42 + offset,
+            10,
+            0,
+            180,
+            1
+        )
 
-            # pupils
-            self.fill_circle(40, self.FACE_CENTER_Y, 4, 0)
-            self.fill_circle(88, self.FACE_CENTER_Y, 4, 0)
-
-            # mouth
-            self.draw_arc(64, 42, 10, 0, 180, 1)
-
-            self.blink_counter += 1
+        self.blink_counter += 1
 
     def draw_happy(self):
 
-        self.fill_circle(40, self.FACE_CENTER_Y, 15, 1)
-        self.fill_circle(88, self.FACE_CENTER_Y, 15, 1)
+        offset = self.face_offset_y()
+        look_x = self.pupil_offset_x()
 
-        self.fill_circle(40, self.FACE_CENTER_Y, 5, 0)
-        self.fill_circle(88, self.FACE_CENTER_Y, 5, 0)
+        self.fill_circle(
+            40,
+            self.FACE_CENTER_Y + offset,
+            15,
+            1
+        )
 
-        self.draw_arc(64, 42, 10, 0, 180, 1)
+        self.fill_circle(
+            88,
+            self.FACE_CENTER_Y + offset,
+            15,
+            1
+        )
+
+        self.fill_circle(
+            40 + look_x,
+            self.FACE_CENTER_Y + offset,
+            5,
+            0
+        )
+
+        self.fill_circle(
+            88 + look_x,
+            self.FACE_CENTER_Y + offset,
+            5,
+            0
+        )
+
+        mouth_size = 6 + int(
+            abs(math.sin(self.anim_frame * 0.25)) * 5
+        )
+
+        self.draw_arc(
+            64,
+            42 + offset,
+            mouth_size,
+            0,
+            180,
+            1
+        )
 
     def draw_sad(self):
 
-        self.fill_circle(40, self.FACE_CENTER_Y + 4, 12, 1)
-        self.fill_circle(88, self.FACE_CENTER_Y + 4, 12, 1)
+        offset = self.face_offset_y()
 
-        self.fill_circle(40, self.FACE_CENTER_Y + 8, 4, 0)
-        self.fill_circle(88, self.FACE_CENTER_Y + 8, 4, 0)
+        self.fill_circle(
+            40,
+            self.FACE_CENTER_Y + 4 + offset,
+            12,
+            1
+        )
 
-        self.draw_arc(64, 46, 10, 180, 360, 1)
+        self.fill_circle(
+            88,
+            self.FACE_CENTER_Y + 4 + offset,
+            12,
+            1
+        )
+
+        self.fill_circle(
+            40,
+            self.FACE_CENTER_Y + 8 + offset,
+            4,
+            0
+        )
+
+        self.fill_circle(
+            88,
+            self.FACE_CENTER_Y + 8 + offset,
+            4,
+            0
+        )
+
+        self.draw_arc(
+            64,
+            46 + offset,
+            10,
+            180,
+            360,
+            1
+        )
 
     def draw_angry(self):
 
-        self.fill_circle(40, self.FACE_CENTER_Y, 12, 1)
-        self.fill_circle(88, self.FACE_CENTER_Y, 12, 1)
+        offset = self.face_offset_y()
 
-        self.fill_circle(40, self.FACE_CENTER_Y - 4, 5, 0)
-        self.fill_circle(88, self.FACE_CENTER_Y - 4, 5, 0)
+        self.fill_circle(
+            40,
+            self.FACE_CENTER_Y + offset,
+            12,
+            1
+        )
 
-        self.oled.line(28, 12, 52, 18, 1)
-        self.oled.line(76, 18, 100, 12, 1)
+        self.fill_circle(
+            88,
+            self.FACE_CENTER_Y + offset,
+            12,
+            1
+        )
 
-        self.oled.hline(54, 42, 20, 1)
+        self.fill_circle(
+            40,
+            self.FACE_CENTER_Y - 4 + offset,
+            5,
+            0
+        )
+
+        self.fill_circle(
+            88,
+            self.FACE_CENTER_Y - 4 + offset,
+            5,
+            0
+        )
+
+        self.oled.line(
+            28,
+            12 + offset,
+            52,
+            18 + offset,
+            1
+        )
+
+        self.oled.line(
+            76,
+            18 + offset,
+            100,
+            12 + offset,
+            1
+        )
+
+        self.oled.hline(
+            54,
+            42 + offset,
+            20,
+            1
+        )
 
     def draw_surprised(self):
 
-        self.fill_circle(40, self.FACE_CENTER_Y, 18, 1)
-        self.fill_circle(88, self.FACE_CENTER_Y, 18, 1)
+        offset = self.face_offset_y()
 
-        self.fill_circle(40, self.FACE_CENTER_Y, 6, 0)
-        self.fill_circle(88, self.FACE_CENTER_Y, 6, 0)
+        self.fill_circle(
+            40,
+            self.FACE_CENTER_Y + offset,
+            18,
+            1
+        )
 
-        self.oled.rect(58, 40, 10, 10, 1)
+        self.fill_circle(
+            88,
+            self.FACE_CENTER_Y + offset,
+            18,
+            1
+        )
+
+        self.fill_circle(
+            40,
+            self.FACE_CENTER_Y + offset,
+            6,
+            0
+        )
+
+        self.fill_circle(
+            88,
+            self.FACE_CENTER_Y + offset,
+            6,
+            0
+        )
+
+        mouth_size = 4 + int(
+            abs(math.sin(self.anim_frame * 0.2)) * 2
+        )
+
+        self.oled.rect(
+            64 - mouth_size,
+            40 + offset,
+            mouth_size * 2,
+            mouth_size * 2,
+            1
+        )
+
+    def draw_thinking(self):
+
+        offset = self.face_offset_y()
+
+        self.oled.line(
+            28,
+            self.FACE_CENTER_Y + offset,
+            52,
+            self.FACE_CENTER_Y + offset,
+            1
+        )
+
+        self.oled.line(
+            76,
+            self.FACE_CENTER_Y + offset,
+            100,
+            self.FACE_CENTER_Y + offset,
+            1
+        )
+
+        self.oled.line(
+            58,
+            42 + offset,
+            70,
+            42 + offset,
+            1
+        )
+
+        phase = (self.think_frame // 10) % 4
+
+        if phase >= 1:
+            self.fill_circle(95, 16, 1, 1)
+
+        if phase >= 2:
+            self.fill_circle(103, 10, 2, 1)
+
+        if phase >= 3:
+            self.fill_circle(113, 4, 3, 1)
+
+        self.think_frame += 1
 
     def draw_sleepy(self):
 
-        self.oled.hline(28, self.FACE_CENTER_Y, 24, 1)
-        self.oled.hline(76, self.FACE_CENTER_Y, 24, 1)
+        offset = self.face_offset_y()
 
-        self.oled.hline(54, 42, 20, 1)
+        self.oled.hline(
+            28,
+            self.FACE_CENTER_Y + offset,
+            24,
+            1
+        )
+
+        self.oled.hline(
+            76,
+            self.FACE_CENTER_Y + offset,
+            24,
+            1
+        )
+
+        mouth_y = 42 + int(
+            math.sin(self.anim_frame * 0.12)
+        )
+
+        self.oled.hline(
+            54,
+            mouth_y + offset,
+            20,
+            1
+        )
+
+        z1 = self.z_offset
+        z2 = (self.z_offset + 10) % 24
 
         self.oled.text(
             "Z",
             100,
-            10 - self.z_offset,
+            20 - z1,
             1
         )
 
         self.oled.text(
             "z",
             108,
-            2 - self.z_offset // 2,
+            20 - z2,
             1
         )
 
         self.z_offset += 1
 
-        if self.z_offset > 20:
+        if self.z_offset > 24:
             self.z_offset = 0
 
     # =====================================================
@@ -233,15 +526,6 @@ class EmotionDisplay:
         if not self.message:
             return
 
-        if self.message_cycle_done and not self.loop_message:
-            self.oled.text(
-                self.message,
-                self.scroll_x,
-                self.TEXT_Y,
-                1
-            )
-            return
-
         self.oled.text(
             self.message,
             self.scroll_x,
@@ -249,11 +533,15 @@ class EmotionDisplay:
             1
         )
 
+        if self.message_cycle_done and not self.loop_message:
+            return
+
         self.scroll_x -= self.TEXT_SCROLL_STEP
 
         text_width = len(self.message) * 8
 
         if self.scroll_x < -text_width:
+
             self.message_cycle_done = True
 
             if self.loop_message:
@@ -285,12 +573,17 @@ class EmotionDisplay:
         elif self.current_emotion == "surprised":
             self.draw_surprised()
 
+        elif self.current_emotion == "thinking":
+            self.draw_thinking()
+
         elif self.current_emotion == "sleepy":
             self.draw_sleepy()
 
         self.draw_message()
 
         self.oled.show()
+
+        self.anim_frame += 1
 
     # =====================================================
     # Async Loop
@@ -302,7 +595,9 @@ class EmotionDisplay:
 
             self.render()
 
-            await asyncio.sleep_ms(self.FRAME_DELAY_MS)
+            await asyncio.sleep_ms(
+                self.FRAME_DELAY_MS
+            )
 
 
 if __name__ == "__main__":
@@ -311,9 +606,13 @@ if __name__ == "__main__":
 
         display = EmotionDisplay()
 
-        asyncio.create_task(display.run())
+        asyncio.create_task(
+            display.run()
+        )
 
-        display.set_message("Emotion Display Ready")
+        display.set_message(
+            "Emotion Display Ready"
+        )
 
         while True:
 
@@ -321,19 +620,27 @@ if __name__ == "__main__":
             await asyncio.sleep(5)
 
             display.talk()
-            display.set_message("Hello Human")
+            display.set_message(
+                "Hello Human"
+            )
             await asyncio.sleep(5)
 
             display.think()
-            display.set_message("Thinking...")
+            display.set_message(
+                "Thinking..."
+            )
             await asyncio.sleep(5)
 
             display.error()
-            display.set_message("Connection Error")
+            display.set_message(
+                "Connection Error"
+            )
             await asyncio.sleep(5)
 
             display.sleep()
-            display.set_message("Sleep Mode")
+            display.set_message(
+                "Sleep Mode"
+            )
             await asyncio.sleep(5)
 
     asyncio.run(main())

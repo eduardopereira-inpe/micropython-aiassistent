@@ -2,6 +2,8 @@ import gc
 import network
 import re
 import time
+import ntptime
+
 
 # =========================================================
 # WiFi
@@ -29,6 +31,13 @@ def conectar_wifi(ssid, password):
 
         print("\nWiFi conectado")
         print(wlan.ifconfig())
+        time.sleep(1)
+        
+        ntptime.settime()
+        print("Local time after synchronization：%s" %str(time.localtime()))
+        print(time.gmtime())
+        print(time.time())
+
 
         return True
 

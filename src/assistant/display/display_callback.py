@@ -57,5 +57,6 @@ class DisplayCallback:
             self.buffer = self.buffer[-self.MAX_BUFFER_CHARS:]
 
         clean = self.normalize_text(self.buffer)
+        print(f"[Display Callback] Response: {clean}")
 
         self.display.set_message(clean)

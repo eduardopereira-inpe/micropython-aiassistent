@@ -11,7 +11,7 @@ class AssistantUI:
     DEFAULT_MESSAGES = {
         "startup": "Assistente iniciado",
         "connecting_wifi": "Conectando WiFi...",
-        "idle": "Como posso ajudar?",
+        "idle": "Pergunte Algo!",
         "listening": "Escutando...",
         "recording": "Gravando...",
         "transcribing": "Transcrevendo...",
@@ -81,51 +81,50 @@ class AssistantUI:
     def startup(self):
 
         self.display.idle()
-        self.display.set_message(
-            self._message("startup")
-        )
+        self.display.scroll_x = 0
+        self.display.message = self._message("startup")
+        
 
     def connecting_wifi(self):
 
         self.display.think()
-        self.display.set_message(
-            self._message("connecting_wifi")
-        )
+        self.display.scroll_x = 0
+        self.display.message = self._message("connecting_wifi")
+        
 
     def idle(self):
 
         self.display.idle()
-        self.display.set_message(
-            self._message("idle")
-        )
+        self.display.scroll_x = 0
+        self.display.set_message("")
 
     def listening(self):
 
         self.display.think()
-        self.display.set_message(
-            self._message("listening")
-        )
+        self.display.scroll_x = 0
+        self.display.message = self._message("listening")
+        
 
     def recording(self):
 
         self.display.think()
-        self.display.set_message(
-            self._message("recording")
-        )
+        self.display.scroll_x = 0
+        self.display.message = self._message("recording")
+        
 
     def transcribing(self):
 
         self.display.think()
-        self.display.set_message(
-            self._message("transcribing")
-        )
+        self.display.scroll_x = 0
+        self.display.message = self._message("transcribing")
+        
 
     def thinking(self):
 
         self.display.think()
-        self.display.set_message(
-            self._message("thinking")
-        )
+        self.display.scroll_x = 0
+        self.display.message = self._message("thinking")
+        
 
     def sleep(self):
 
