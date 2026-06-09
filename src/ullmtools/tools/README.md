@@ -13,53 +13,60 @@ Provide a clear contract for tool calling:
 
 ## 2. Location
 
-- Runtime: `src/assistant/tools/tools.py`
-- Package init: `src/assistant/tools/__init__.py`
+- Runtime: `src/ullmtools/tools/*_tool.py`
+- Package init: `src/ullmtools/tools/__init__.py`
 
 ## 3. How To Create A New Tool
 
 Follow this checklist.
 
-1. Add one Python function in `tools.py`.
-2. Add one schema constant in `tools.py` (OpenAI function calling format).
-3. Keep the function name and schema `function.name` identical.
-4. Keep parameters explicit (`type`, `properties`, `required`).
-5. Return compact payloads (important for MicroPython memory limits).
-6. Add docs for the new tool in section "Current Tools" below.
-7. Register schema + execution route in the LLM/chat orchestration layer.
+1. Create one file per tool, for example `my_tool.py`.
+2. Implement one callable class that inherits from `CallableTool`.
+3. Keep `NAME` and `_SCHEMA["function"]["name"]` identical.
+4. Define `_SCHEMA` in the same class module (OpenAI function-calling format).
+5. Keep parameters explicit (`type`, `properties`, `required`).
+6. Return compact payloads (important for MicroPython memory limits).
+7. Export the class in `src/ullmtools/tools/__init__.py`.
+8. Register the tool instance with `llm.register_tool(tool=my_tool_instance)`.
 
 ## 4. Template
 
 ```python
-def my_tool(param1, param2=None):
-    # Keep execution deterministic when possible.
-    return {
-        "ok": True,
-        "value": "result"
-    }
+from .base_tool import CallableTool
 
 
-MY_TOOL_SCHEMA = {
-    "type": "function",
-    "function": {
-        "name": "my_tool",
-        "description": "Short action-oriented description",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "param1": {
-                    "type": "string",
-                    "description": "Required parameter"
+class MyTool(CallableTool):
+
+    NAME = "my_tool"
+
+    _SCHEMA = {
+        "type": "function",
+        "function": {
+            "name": "my_tool",
+            "description": "Short action-oriented description",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "param1": {
+                        "type": "string",
+                        "description": "Required parameter"
+                    },
+                    "param2": {
+                        "type": "string",
+                        "description": "Optional parameter"
+                    }
                 },
-                "param2": {
-                    "type": "string",
-                    "description": "Optional parameter"
-                }
-            },
-            "required": ["param1"]
+                "required": ["param1"],
+                "additionalProperties": False
+            }
         }
     }
-}
+
+    def __call__(self, param1, param2=None):
+        return {
+            "ok": True,
+            "value": "result"
+        }
 ```
 
 ## 5. Documentation Style For Each Tool

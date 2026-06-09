@@ -202,42 +202,47 @@ asyncio.run(main())
 
 ## Tool Calling
 
-Tools live in `src/assistant/tools`.
+Tools live in `src/ullmtools/tools`.
 
 ### How to create a new tool
 
-1. Implement the Python function in `src/assistant/tools/tools.py`.
-2. Create the tool JSON schema in the same file using OpenAI function-calling format.
-3. Keep the Python function name and schema `function.name` aligned.
+1. Create one file per tool in `src/ullmtools/tools/*_tool.py`.
+2. Implement one class callable (`__call__`) inheriting from `CallableTool`.
+3. Keep `NAME` and `_SCHEMA["function"]["name"]` aligned.
 4. Define parameters with `type`, `properties`, and `required`.
 5. Keep return payloads compact to respect MicroPython memory constraints.
-6. Register the tool in `AssistantApplication` by calling `self.llm.register_tool(...)`.
-7. Pass schemas to chat calls (for example: `tools=self.llm.get_tools_schema()`).
+6. Register instances in `AssistantApplication` with `self.llm.register_tool(tool=my_tool)`.
+7. Use `tools=self.llm.get_tools_schema()` in chat calls.
 
 ### Minimal example
 
 ```python
-def get_temperature(city):
-    return "28 degrees Celsius in {}".format(city)
+from ullmtools.tools.base_tool import CallableTool
 
 
-GET_TEMPERATURE_SCHEMA = {
+class GetTemperatureTool(CallableTool):
+  NAME = "get_temperature"
+  _SCHEMA = {
     "type": "function",
     "function": {
-        "name": "get_temperature",
-        "description": "Returns the current temperature for a city",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "city": {
-                    "type": "string",
-                    "description": "City name"
-                }
-            },
-            "required": ["city"]
-        }
+      "name": "get_temperature",
+      "description": "Returns the current temperature for a city",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "city": {
+            "type": "string",
+            "description": "City name"
+          }
+        },
+        "required": ["city"],
+        "additionalProperties": False
+      }
     }
-}
+  }
+
+  def __call__(self, city):
+    return "28 degrees Celsius in {}".format(city)
 ```
 
 ### Tool documentation
@@ -245,6 +250,7 @@ GET_TEMPERATURE_SCHEMA = {
 Detailed documentation for available tools and the creation pattern:
 
 - `src/assistant/tools/README.md`
+- `src/ullmtools/tools/README.md`
 
 ## Import Convention
 
@@ -253,7 +259,7 @@ Use absolute package imports for internal modules:
 ```python
 from assistant.display.emotion_display import EmotionDisplay
 from assistant.llm.openai import OpenAI
-from assistant.network.wifi import conectar_wifi
+from assistant.connectivity.wifi import conectar_wifi
 from uvoiced.audio_service import AudioService
 ```
 

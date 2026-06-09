@@ -148,10 +148,21 @@ class LLMInterface:
 
     def register_tool(
         self,
-        name,
-        func,
-        schema
+        name=None,
+        func=None,
+        schema=None,
+        tool=None
     ):
+
+        if tool is not None:
+            name = tool.name
+            func = tool
+            schema = tool.schema
+
+        if name is None or func is None or schema is None:
+            raise ValueError(
+                "register_tool requires name, func and schema, or a tool object"
+            )
 
         self._tools[name] = {
             "function": func,

@@ -8,8 +8,8 @@ from assistant.config import (
     PASSWORD
 )
 
-from assistant.network.wifi import (
-    conectar_wifi
+from connectivity.wifi import (
+    connect_to_wifi
 )
 
 from udisplay.emotion_display import (
@@ -48,23 +48,15 @@ from ullmtools import (
 )
 
 from ullmtools.tools import (
-    # get_temperature,
-    # GET_TEMPERATURE_SCHEMA,
-    turn_onoff_led,
-    TURN_ONOFF_LED_SCHEMA,
-    get_local_time,
-    GET_LOCAL_TIME_SCHEMA,
-    get_local_datetime,
-    GET_LOCAL_DATETIME_SCHEMA ,
+    # GetTemperatureTool,
+    TurnOnOffLedTool,
+    LocalTimeTool,
+    LocalDateTimeTool,
     Scheduler,
-    create_schedule_event_tool,
-    SCHEDULE_EVENT_SCHEMA, 
+    ScheduleEventTool,
     DisplayMessageTool, 
-    SHOW_MESSAGE_SCHEMA, 
-    get_lat_lon,
-    GET_LAT_LON_SCHEMA,
-    get_weather,
-    GET_WEATHER_SCHEMA
+    GetLatLonTool,
+    GetWeatherTool
 
     
 )
@@ -120,11 +112,15 @@ class AssistantApplication:
             self.scheduler
         )
 
-        schedule_event_tool = (
-            create_schedule_event_tool(
-                self.scheduler
-            )
+        schedule_event_tool = ScheduleEventTool(
+            self.scheduler
         )
+
+        turn_onoff_led = TurnOnOffLedTool()
+        get_local_time = LocalTimeTool()
+        get_local_datetime = LocalDateTimeTool()
+        get_lat_lon = GetLatLonTool()
+        get_weather = GetWeatherTool()
 
         show_message = DisplayMessageTool(
             self.ui,
@@ -135,54 +131,24 @@ class AssistantApplication:
         # Register Tools
         # ------------------------------
 
-        self.llm.register_tool(
-            name="schedule_event",
-            func=schedule_event_tool,
-            schema=SCHEDULE_EVENT_SCHEMA
-        )
+        self.llm.register_tool(tool=schedule_event_tool)
 
         # self.llm.register_tool(
-        #     name="get_temperature",
-        #     func=get_temperature,
-        #     schema=GET_TEMPERATURE_SCHEMA
+        #     tool=GetTemperatureTool()
         # )
         
-        self.llm.register_tool(
-            name="turn_onoff_led",
-            func=turn_onoff_led,
-            schema=TURN_ONOFF_LED_SCHEMA
-        )
+        self.llm.register_tool(tool=turn_onoff_led)
         
-        self.llm.register_tool(
-            name="get_local_time",
-            func=get_local_time,
-            schema=GET_LOCAL_TIME_SCHEMA 
-        )
+        self.llm.register_tool(tool=get_local_time)
 
-        self.llm.register_tool(
-            name="get_local_datetime",
-            func=get_local_datetime,
-            schema=GET_LOCAL_DATETIME_SCHEMA 
-        )
+        self.llm.register_tool(tool=get_local_datetime)
 
-        self.llm.register_tool(
-            name="show_message",
-            func=show_message,
-            schema=SHOW_MESSAGE_SCHEMA
-        )
+        self.llm.register_tool(tool=show_message)
 
 
-        self.llm.register_tool(
-            name="get_lat_lon",
-            func=get_lat_lon,
-            schema=GET_LAT_LON_SCHEMA
-        )
+        self.llm.register_tool(tool=get_lat_lon)
 
-        self.llm.register_tool(
-            name="get_weather",
-            func=get_weather,
-            schema=GET_WEATHER_SCHEMA
-         )
+        self.llm.register_tool(tool=get_weather)
 
         # ------------------------------
 
@@ -217,7 +183,7 @@ class AssistantApplication:
 
         await asyncio.sleep(1)
 
-        conectar_wifi(
+        connect_to_wifi(
             SSID,
             PASSWORD
         )
