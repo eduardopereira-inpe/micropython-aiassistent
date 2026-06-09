@@ -19,12 +19,6 @@ except ImportError:
     import asyncio
 
 
-
-# # SSID_REDE = "NOTE-646635 1412"
-# # SENHA_REDE = "798-y6N1"
-# SSID_REDE = "RedeGamer"
-# SENHA_REDE = "Vick0508"
-
 print(f"Conectando na rede: {SSID}")
 conectar_wifi(
     SSID,
@@ -57,13 +51,19 @@ async def main():
         schema=TURN_ONOFF_LED_SCHEMA
     )
 
-    response = await llm.chat(
-        prompt="Se a temperatura for menor que 30 graus, ligue o led.",
-        tools=llm.get_tools_schema()
-    )
+    
+    while True:
+        user_input = input("Input Text > ")        
 
-    print("Resposta final:")
-    print(response["response"])
+        response = llm.chat(
+            prompt=user_input,
+            tools=llm.get_tools_schema()
+        )
+
+        print("Resposta final:")
+        print(response["response"])
+
+
 
 asyncio.run(main())
 

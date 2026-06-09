@@ -102,14 +102,14 @@ class AssistantApplication:
             volume=600
         )
 
-        # self.llm = OpenAI(
-        #     api_key=API_KEY
-        # )
-
-        self.llm = OpenAIMTools(
-            api_key=API_KEY,
-            verbose=True
+        self.llm = OpenAI(
+            api_key=API_KEY
         )
+
+        # self.llm = OpenAIMTools(
+        #     api_key=API_KEY,
+        #     verbose=True
+        # )
 
         self.scheduler = Scheduler(
             tool_executor=
