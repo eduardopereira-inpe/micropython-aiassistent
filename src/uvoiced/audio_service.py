@@ -6,6 +6,7 @@ OpenAI-based transcription for constrained MicroPython devices.
 import uasyncio as asyncio
 
 from machine import Pin
+import uos
 
 from uvoiced import (
     VoiceActivityDetector,
@@ -47,6 +48,7 @@ class AudioService:
         output_file: str = "test.wav",
         mic_ibuf: int = 16384,
         sample_rate=16000 // 2, 
+        delete_wav_after_transcription: bool = True,
         verbose: bool = False
     ) -> None:
         """Initialize the audio service dependencies and runtime state.
@@ -58,12 +60,14 @@ class AudioService:
             output_file: Path to the temporary WAV output file.
             mic_ibuf: Internal microphone buffer size in bytes.
             sample_rate: Audio capture sample rate in Hz used by the microphone manager.
+            delete_wav_after_transcription: Whether to delete the WAV file after transcription.
             verbose: Enables diagnostic logging when True.
         """
 
         self.api_key = api_key
 
         self.verbose = verbose
+        self.delete_wav_after_transcription = delete_wav_after_transcription
 
         self.microphone_manager = MicrophoneManager(
             sample_rate=sample_rate, 
@@ -149,6 +153,13 @@ class AudioService:
 
             if text:
                 self.audio_service_state = AudioServiceUIState.IDLE
+                if self.delete_wav_after_transcription:
+                    try:
+                        uos.remove(self.output_file)
+                        await asyncio.sleep_ms(10)
+                    except Exception as e:
+                        self._log(f"[{self._NAME}] Failed to delete WAV file: {e}")
+
                 return text
 
 

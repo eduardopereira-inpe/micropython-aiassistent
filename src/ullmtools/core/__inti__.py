@@ -5,6 +5,10 @@ from .apis.ollama import (
     Ollama
 )
 
+from .apis.openaimtools import (
+    OpenAIMTools
+)
+
 from .apis.llminterface import (
     LLMInterface,
     ChatState
@@ -19,5 +23,6 @@ __all__ = [
     "Ollama",
     "LLMInterface",
     "ChatState",
-    "ChatService"
+    "ChatService",
+    "OpenAIMTools"
 ]

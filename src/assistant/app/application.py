@@ -24,6 +24,9 @@ from ullmtools import (
     OpenAI
 )
 
+from ullmtools.core.apis.openaimtools import OpenAIMTools
+
+
 from ubuzzer.player import (
     BuzzerPlayer, 
     
@@ -99,8 +102,13 @@ class AssistantApplication:
             volume=600
         )
 
-        self.llm = OpenAI(
-            api_key=API_KEY
+        # self.llm = OpenAI(
+        #     api_key=API_KEY
+        # )
+
+        self.llm = OpenAIMTools(
+            api_key=API_KEY,
+            verbose=True
         )
 
         self.scheduler = Scheduler(
