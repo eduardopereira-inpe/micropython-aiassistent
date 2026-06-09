@@ -28,8 +28,15 @@ Notes for Embedded Usage
 """
 
 import gc
-import urequests
-import ujson
+try:
+    import urequests  # type: ignore
+except ImportError:
+    import requests as urequests
+
+try:
+    import ujson  # type: ignore
+except ImportError:
+    import json as ujson
 
 from .llminterface import (
     LLMInterface, ChatState
@@ -318,7 +325,7 @@ class OpenAIMTools(
 
             gc.collect()
 
-    def chat(
+    async def chat(
         self,
         prompt,
         system_prompt=(
@@ -490,6 +497,11 @@ class OpenAIMTools(
 
 if __name__ == "__main__":
     from assistant.network.wifi import conectar_wifi
+    try:
+        import uasyncio as asyncio  # type: ignore
+    except ImportError:
+        import asyncio
+
 
     
     # SSID_REDE = "NOTE-646635 1412"
@@ -572,11 +584,13 @@ if __name__ == "__main__":
         }
     }
 
-    API_KEY = "YOUR_OPENAI_API_KEY"
+    async def main():
+        API_KEY = "YOUR_OPENAI_API_KEY"
 
-    if API_KEY == "YOUR_OPENAI_API_KEY":
-        print("Defina API_KEY no exemplo antes de executar.")
-    else:
+        if API_KEY == "YOUR_OPENAI_API_KEY":
+            print("Defina API_KEY no exemplo antes de executar.")
+            return
+
         llm = OpenAIMTools(
             api_key=API_KEY,
             model="gpt-4o-mini",
@@ -588,18 +602,20 @@ if __name__ == "__main__":
             func=get_temperature,
             schema=GET_TEMPERATURE_SCHEMA
         )
-        
+
         llm.register_tool(
             name="turn_onoff_led",
             func=turn_onoff_led,
             schema=TURN_ONOFF_LED_SCHEMA
         )
 
-        response = llm.chat(
+        response = await llm.chat(
             prompt="Se a temperatura em Sao Paulo for menor que 30 graus, ligue o led.",
             tools=llm.get_tools_schema()
         )
 
         print("Resposta final:")
         print(response["response"])
+
+    asyncio.run(main())
 
