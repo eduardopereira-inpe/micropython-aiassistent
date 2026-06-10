@@ -64,7 +64,7 @@ async def main():
 
 
     schedule_tool = ScheduleEventTool(
-            self.scheduler,
+            scheduler,
             verbose=True
         )
 
