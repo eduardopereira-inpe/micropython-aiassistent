@@ -8,48 +8,55 @@ from assistant.config import (
     PASSWORD
 )
 
-from assistant.network.wifi import (
-    conectar_wifi
+from connectivity.wifi import (
+    connect_to_wifi
 )
 
-from assistant.display.emotion_display import (
+from udisplay.emotion_display import (
     EmotionDisplay
 )
 
-from assistant.llm.openai import (
+from udisplay.display_callback import (
+    DisplayCallback
+)
+
+from ullmtools import (
     OpenAI
 )
 
-from assistant.buzzer.player import (
-    BuzzerPlayer
+from ullmtools.core.apis.openaimtools import OpenAIMTools
+
+
+from ubuzzer.player import (
+    BuzzerPlayer, 
+    
 )
+
+
 
 from assistant.ui.ui import (
     AssistantUI
 )
 
-from assistant.audio.service import (
-    AudioService
+from uvoiced.audio_service import (
+    AudioService,
+    AudioServiceUIState
 )
 
-from assistant.chat.service import (
+from ullmtools import (
     ChatService
 )
 
-from assistant.tools import (
-    get_temperature,
-    GET_TEMPERATURE_SCHEMA,
-    turn_onoff_led,
-    TURN_ONOFF_LED_SCHEMA,
-    get_local_time,
-    GET_LOCAL_TIME_SCHEMA,
-    get_local_datetime,
-    GET_LOCAL_DATETIME_SCHEMA ,
+from ullmtools.tools import (
+    # GetTemperatureTool,
+    TurnOnOffLedTool,
+    LocalTimeTool,
+    LocalDateTimeTool,
     Scheduler,
-    create_schedule_event_tool,
-    SCHEDULE_EVENT_SCHEMA, 
+    ScheduleEventTool,
     DisplayMessageTool, 
-    SHOW_MESSAGE_SCHEMA
+    GetLatLonTool,
+    GetWeatherTool
 
     
 )
@@ -62,7 +69,9 @@ from assistant.tools import (
 
 class AssistantApplication:
 
-    def __init__(self):
+    def __init__(self, verbose=True):
+
+        self.verbose = verbose
 
         self.display = (
             EmotionDisplay()
@@ -89,6 +98,11 @@ class AssistantApplication:
             api_key=API_KEY
         )
 
+        # self.llm = OpenAIMTools(
+        #     api_key=API_KEY,
+        #     verbose=True
+        # )
+
         self.scheduler = Scheduler(
             tool_executor=
                 self.llm.execute_tool
@@ -98,11 +112,15 @@ class AssistantApplication:
             self.scheduler
         )
 
-        schedule_event_tool = (
-            create_schedule_event_tool(
-                self.scheduler
-            )
+        schedule_event_tool = ScheduleEventTool(
+            self.scheduler
         )
+
+        turn_onoff_led = TurnOnOffLedTool()
+        get_local_time = LocalTimeTool()
+        get_local_datetime = LocalDateTimeTool()
+        get_lat_lon = GetLatLonTool()
+        get_weather = GetWeatherTool()
 
         show_message = DisplayMessageTool(
             self.ui,
@@ -113,53 +131,45 @@ class AssistantApplication:
         # Register Tools
         # ------------------------------
 
-        self.llm.register_tool(
-            name="schedule_event",
-            func=schedule_event_tool,
-            schema=SCHEDULE_EVENT_SCHEMA
-        )
+        self.llm.register_tool(tool=schedule_event_tool)
 
-        self.llm.register_tool(
-            name="get_temperature",
-            func=get_temperature,
-            schema=GET_TEMPERATURE_SCHEMA
-        )
+        # self.llm.register_tool(
+        #     tool=GetTemperatureTool()
+        # )
         
-        self.llm.register_tool(
-            name="turn_onoff_led",
-            func=turn_onoff_led,
-            schema=TURN_ONOFF_LED_SCHEMA
-        )
+        self.llm.register_tool(tool=turn_onoff_led)
         
-        self.llm.register_tool(
-            name="get_local_time",
-            func=get_local_time,
-            schema=GET_LOCAL_TIME_SCHEMA 
-        )
+        self.llm.register_tool(tool=get_local_time)
 
-        self.llm.register_tool(
-            name="get_local_datetime",
-            func=get_local_datetime,
-            schema=GET_LOCAL_DATETIME_SCHEMA 
-        )
+        self.llm.register_tool(tool=get_local_datetime)
 
-        self.llm.register_tool(
-            name="show_message",
-            func=show_message,
-            schema=SHOW_MESSAGE_SCHEMA
-        )
+        self.llm.register_tool(tool=show_message)
+
+
+        self.llm.register_tool(tool=get_lat_lon)
+
+        self.llm.register_tool(tool=get_weather)
+
+        # ------------------------------
 
         self.audio = AudioService(
             api_key=API_KEY,
-            ui=self.ui
+        )
+
+        self.callback = (
+            DisplayCallback(self.display)
         )
 
         self.chat = ChatService(
             llm=self.llm,
-            ui=self.ui,
-            player=self.player,
-            display=self.display
+            callback=self.callback
         )
+
+        self._ui_current_state = None
+
+    def _log(self, msg):
+        if self.verbose:
+            print(msg)
 
     async def initialize(self):
 
@@ -173,15 +183,48 @@ class AssistantApplication:
 
         await asyncio.sleep(1)
 
-        conectar_wifi(
+        connect_to_wifi(
             SSID,
             PASSWORD
         )
 
         self.ui.idle()
+        self._ui_current_state = 1
         asyncio.create_task(
             self.scheduler.run()
         )
+
+             
+    async def audio_monitor(self):
+        
+        self._log(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
+        
+        if self.audio.audio_service_state == AudioServiceUIState.IDLE:
+
+            if self._ui_current_state != 1:
+                self._ui_current_state = 1
+                self.ui.idle()
+            await asyncio.sleep_ms(0)
+        
+            
+        if self.audio.audio_service_state == AudioServiceUIState.LISTENING:
+            self._ui_current_state = 2
+            self.ui.listening()
+            
+            self._log(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
+
+            await asyncio.sleep_ms(100)
+
+        if self.audio.audio_service_state == AudioServiceUIState.TRANSCRIBING:
+            self._ui_current_state = 3
+            self.ui.transcribing()
+            
+            self._log(f"[AssistantApplication] _audio_state: {self.audio.audio_service_state}")
+
+            await asyncio.sleep_ms(100)
+            
+        
+        
 
     async def run(self):
 
@@ -191,59 +234,27 @@ class AssistantApplication:
 
             try:
 
-                question = (
-                    await self.audio.listen()
-                )
+                listener_task = asyncio.create_task(self.audio.listen())
 
-                if not question:
+                await  self.audio_monitor()
 
-                    await asyncio.sleep_ms(
-                        0
-                    )
+                is_recorded = await listener_task
 
-                    if (
-                        utime.time()
-                        - self._current_time
-                        > self.sleep_time
-                    ):
-
-                        self.ui.sleep()
-
-                        self._state = (
-                            "sleep"
-                        )
-
+                if not is_recorded:
                     continue
 
-                if (
-                    self._state
-                    == "sleep"
-                ):
+                question_task = asyncio.create_task(self.audio.transcribing())
+                
+                await  self.audio_monitor()
+                
+                question = await question_task
 
-                    self.ui.idle()
-
-                    self._state = (
-                        "idle"
-                    )
-
-                    self._current_time = (
-                        utime.time()
-                    )
-
-                gc.collect()
-
+               
                 await self.chat.ask(
                     question,
                     tools=self.llm.get_tools_schema()
                 )
 
-                self.audio.is_sound_detected = (
-                    False
-                )
-                
-                self.audio.is_sound_detected = False
-
-                gc.collect()
 
             except KeyboardInterrupt:
 
@@ -269,6 +280,38 @@ class AssistantApplication:
                 )
 
                 gc.collect()
+                
+            if self.callback.started_response:
+
+                play_response_task = asyncio.create_task(
+                    self.player.play_async(
+                        [
+                    'Star Trek intro',
+                    80,
+                    'NOTE_D4',
+                    '-8',
+                    'NOTE_G4',
+                    '16',
+                    'NOTE_C5',
+                    '-4',
+                    'NOTE_B4',
+                    '8',
+                    'NOTE_G4',
+                    '-16',
+                    'NOTE_E4',
+                    '-16',
+                    'NOTE_A4',
+                    '-16',
+                    'NOTE_D5',
+                    '2'
+                ]
+                    )
+                )
+
+                await play_response_task
+
+                await self.ui.wait_message_cycle()
+   
 
         self.shutdown()
 

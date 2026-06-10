@@ -1,6 +1,6 @@
 
 from assistant.utils.dotenv import load_dotenv
-from assistant.network.wifi import conectar_wifi
+from connectivity.wifi import connect_to_wifi
 
 
 
@@ -11,7 +11,7 @@ SSID = config.get("WIFI_SSID")
 PASSWORD = config.get("WIFI_PASS")
 
 
-conectar_wifi(
+connect_to_wifi(
     SSID,
     PASSWORD
 )

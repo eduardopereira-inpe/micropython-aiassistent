@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Mini Assistente</title>
+
+<style>
+
+    * {
+        box-sizing: border-box;
+    }
+    
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: #0f172a;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+    }
+    
+    .chatbox {
+        width: 95%;
+        max-width: 700px;
+        height: 85vh;
+    
+        background: white;
+        border-radius: 18px;
+    
+        overflow: hidden;
+    
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .header {
+        background: #2563eb;
+        color: white;
+        padding: 16px;
+        text-align: center;
+        font-size: 18px;
+        font-weight: bold;
+    }
+    
+    .messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 18px;
+        background: #f8fafc;
+    }
+    
+    .msg {
+        max-width: 85%;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        border-radius: 14px;
+        word-wrap: break-word;
+        white-space: pre-wrap;
+    }
+    
+    .user {
+        background: white;
+        border: 1px solid #dbe2ea;
+        margin-right: auto;
+        border-bottom-left-radius: 4px;
+    }
+    
+    .bot {
+        background: #2563eb;
+        color: white;
+        margin-left: auto;
+        border-bottom-right-radius: 4px;
+    }
+    
+    .label {
+        font-size: 11px;
+        margin-bottom: 4px;
+        opacity: 0.75;
+    }
+    
+    .footer {
+        border-top: 1px solid #e5e7eb;
+        padding: 12px;
+        background: white;
+    }
+    
+    form {
+        display: flex;
+        gap: 8px;
+    }
+    
+    input {
+        flex: 1;
+        padding: 12px;
+        border: 1px solid #cbd5e1;
+        border-radius: 20px;
+        outline: none;
+    }
+    
+    button {
+        padding: 12px 18px;
+        border: none;
+        border-radius: 20px;
+        background: #2563eb;
+        color: white;
+        font-weight: bold;
+    }
+    
+    button:active {
+        opacity: 0.9;
+    }
+
+    .spinner {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border: 2px solid rgba(255,255,255,0.4);
+        border-top: 2px solid white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-right: 6px;
+        vertical-align: middle;
+    }
+
+    @keyframes spin {
+        from { transform: rotate(0deg); }
+        to   { transform: rotate(360deg); }
+    }
+    
+    </style>
+
+</head>
+
+<body>
+
+<div class="chatbox">
+
+    <div class="header">
+        🤖 Mini Assistente
+    </div>
+
+    <div class="messages">
+
+        <div class="msg user">
+            <div class="label">Você</div>
+            {{QUESTION}}
+        </div>
+
+        <div class="msg bot">
+            <div class="label">Assistente</div>
+            {{ANSWER}}
+        </div>
+
+    </div>
+
+    <div class="footer">
+        <form method="post" id="chatForm">
+
+            <input
+                type="text"
+                name="msg"
+                id="msgInput"
+                placeholder="Digite sua pergunta..."
+                required>
+
+            <button type="submit" id="sendBtn">
+                Enviar
+            </button>
+
+        </form>
+    </div>
+
+</div>
+
+
+<script>
+
+document.getElementById("chatForm").addEventListener("submit", function() {
+
+    const btn = document.getElementById("sendBtn");
+    const input = document.getElementById("msgInput");
+
+    btn.disabled = true;
+    input.readOnly = true;
+
+    
+
+    btn.innerHTML =
+        '<span class="spinner"></span>Processando';
+
+});
+
+let enviando = false;
+
+document.getElementById("chatForm").addEventListener("submit", function(e) {
+
+    if (enviando) {
+        e.preventDefault();
+        return;
+    }
+
+    enviando = true;
+
+    const btn = document.getElementById("sendBtn");
+    const input = document.getElementById("msgInput");
+
+    btn.disabled = true;
+    input.readOnly = true;
+
+    btn.innerHTML =
+        '<span class="spinner"></span>Gerando resposta...';
+
+});
+
+</script>
+
+</body>
+</html>
