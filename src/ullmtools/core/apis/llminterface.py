@@ -37,13 +37,13 @@ class LLMInterface:
     
     def chat(
             self,
-            prompt,
-            system_prompt=(
+            prompt: str,
+            system_prompt: str = (
                 "You are a helpful assistant."
             ),
-            max_tokens=100,
-            temperature=0.7,
-            stream=False,
+            max_tokens: int = 100,
+            temperature: float = 0.7,
+            stream: bool = False,
             callback=None,
             tools=None
         ):
