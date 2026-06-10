@@ -1,6 +1,6 @@
 from connectivity import connect_to_wifi
 from assistant.utils.asyncinput import async_input
-
+import gc
 from udotenv.dotenv import load_dotenv
 from ullmtools.core.apis.openaimtools import OpenAIMTools
 
@@ -76,7 +76,7 @@ async def main():
         )
 
     get_weather = GetWeatherTool()
-    turn_onoff_led = TurnOnOffLedTool(pin=4)
+    turn_onoff_led = TurnOnOffLedTool(pin=23)
 
 
     llm.register_tool(tool=schedule_event_tool)
@@ -103,6 +103,8 @@ async def main():
             system_prompt=systemprompt,
             tools=llm.get_tools_schema()
         )
+        gc.collect()
+
 
         print("Resposta final:")
         print(response["response"])
