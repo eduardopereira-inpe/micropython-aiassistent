@@ -1,5 +1,6 @@
 # MicroPython AI Assistant
 
+<<<<<<< HEAD
 A reusable voice assistant framework for ESP32-class boards running MicroPython.
 
 Repository: https://github.com/eduardopereira-inpe/micropython-aiassistent
@@ -16,15 +17,31 @@ This project captures audio from an INMP441 microphone, transcribes it with Open
 - Network and memory diagnostics for constrained MicroPython devices
 - Built-in tool-calling support for LLM function execution
 - `manifest.py` ready for `mip` packaging workflows
+=======
+A modular voice assistant framework for ESP32-class boards running MicroPython.
 
-## Repository Structure
+Repository: https://github.com/eduardopereira-inpe/micropython-aiassistent
+
+The project captures audio from an INMP441 microphone, transcribes speech, generates an LLM response, and renders status/output on an SSD1306 OLED display, with optional buzzer feedback and callable runtime tools.
+
+## Highlights
+
+- Modular package layout for reuse across projects.
+- Assistant orchestration in `src/assistant`.
+- Reusable LLM + tool-calling package in `src/ullmtools`.
+- Reusable voice/audio toolkit in `src/uvoiced`.
+- Reusable hardware helpers in `src/udisplay`, `src/ubuzzer`, and `src/connectivity`.
+- Runnable examples in `src/examples`.
+- `manifest.py` included for `mip` packaging.
+>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
+
+## Current Repository Structure
 
 ```text
 src/
   assistant/
-    __init__.py
-    config.py
     app/
+<<<<<<< HEAD
       __init__.py
       application.py
     buzzer/
@@ -55,11 +72,11 @@ src/
       scheduler.py
       schemas.py
       tools.py
+=======
+>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
     ui/
-      __init__.py
-      messages.json
-      ui.py
     utils/
+<<<<<<< HEAD
       __init__.py
       asyncinput.py
       dotenv.py
@@ -75,8 +92,40 @@ src/
     voice_activity_detector.py
     wav_recorder.py
     wavheader.py
+=======
+    config.py
+  connectivity/
+    wifi.py
+>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
   examples/
     main.py
+    samplellm.py
+    exemplo_server.py
+  ubuzzer/
+    melodies.py
+    notes.py
+    player.py
+  udisplay/
+    display_callback.py
+    emotion_display.py
+    ssd1306.py
+  udotenv/
+    dotenv.py
+  ullmtools/
+    core/
+    tools/
+    README.md
+  uvoiced/
+    audio_service.py
+    inmp441.py
+    microphoneinterface.py
+    microphonemanager.py
+    stream_client.py
+    transcriber_client_manager.py
+    transcriber_client_manger_interface.py
+    voice_activity_detector.py
+    wav_recorder.py
+    wavheader.py
 
 images/
 manifest.py
@@ -153,22 +202,34 @@ WIFI_SSID=your_wifi_name
 WIFI_PASS=your_wifi_password
 ```
 
-`assistant.config` loads this file and exposes:
+`assistant.config` reads this file and exposes:
 
 - `API_KEY`
 - `SSID`
 - `PASSWORD`
 
-Note: Wi-Fi connection is attempted when `assistant.config` is imported.
+Note: Wi-Fi connection is attempted by `assistant.config` on import.
 
 ### 3) Deploy to the board
 
+<<<<<<< HEAD
 Copy `src/assistant`, `src/uvoiced`, and `src/examples` to the device filesystem.
+=======
+Copy required packages and examples to the device filesystem.
+>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
 
-Example using `mpremote`:
+Example with `mpremote`:
 
 ```bash
 mpremote connect auto fs cp -r src/assistant :/
+<<<<<<< HEAD
+=======
+mpremote connect auto fs cp -r src/connectivity :/
+mpremote connect auto fs cp -r src/ubuzzer :/
+mpremote connect auto fs cp -r src/udisplay :/
+mpremote connect auto fs cp -r src/udotenv :/
+mpremote connect auto fs cp -r src/ullmtools :/
+>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
 mpremote connect auto fs cp -r src/uvoiced :/
 mpremote connect auto fs cp -r src/examples :/
 mpremote connect auto fs cp env.txt :/
@@ -182,13 +243,10 @@ mpremote connect auto fs cp env.txt :/
 mpremote connect auto run src/examples/main.py
 ```
 
-Or from REPL:
+### LLM + tools sample
 
-```python
-import uasyncio as asyncio
-from examples.main import main
-
-asyncio.run(main())
+```bash
+mpremote connect auto run src/examples/samplellm.py
 ```
 
 ## Core Entry Points
@@ -196,16 +254,23 @@ asyncio.run(main())
 - App orchestrator: `assistant.app.application.AssistantApplication`
 - UI controller: `assistant.ui.ui.AssistantUI`
 - Audio flow: `uvoiced.audio_service.AudioService`
+<<<<<<< HEAD
 - Chat flow: `assistant.chat.service.ChatService`
 - OpenAI chat client: `assistant.llm.openai.OpenAI`
 - OpenAI stream transcription client: `uvoiced.stream_client.OpenAIStreamClient`
+=======
+- Chat flow: `ullmtools.core.chat.chat_service.ChatService`
+- OpenAI clients: `ullmtools.core.apis.openai.OpenAI` and `ullmtools.core.apis.openaimtools.OpenAIMTools`
+- Ollama client: `ullmtools.core.apis.ollama.Ollama`
+>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
 
 ## Tool Calling
 
 Tools live in `src/ullmtools/tools`.
 
-### How to create a new tool
+For full API, architecture, and examples, see:
 
+<<<<<<< HEAD
 1. Create one file per tool in `src/ullmtools/tools/*_tool.py`.
 2. Implement one class callable (`__call__`) inheriting from `CallableTool`.
 3. Keep `NAME` and `_SCHEMA["function"]["name"]` aligned.
@@ -262,11 +327,16 @@ from assistant.llm.openai import OpenAI
 from assistant.connectivity.wifi import conectar_wifi
 from uvoiced.audio_service import AudioService
 ```
+=======
+- `src/ullmtools/README.md`
+- `src/ullmtools/tools/README.md`
+>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
 
 ## Memory and Network Notes (ESP32)
 
 The project includes mitigations for constrained RAM and unstable links:
 
+<<<<<<< HEAD
 - Tests were executed with only 142.6 KB of free RAM.
 - Running scripts and libraries occupied about 20 KB of RAM (162.6 KB - 142.6 KB).
 - TLS/post diagnostics in transcription and chat clients
@@ -275,10 +345,19 @@ The project includes mitigations for constrained RAM and unstable links:
 - Streaming mode that avoids accumulating full chat response in RAM
 
 If issues occur, inspect serial logs with these prefixes:
+=======
+- Diagnostics in transcription and chat clients.
+- Retry strategy for transient socket failures.
+- I2S mic buffer release before TLS-heavy operations.
+- Streaming flow to reduce response buffering when possible.
+
+If issues occur, inspect serial logs with prefixes such as:
+>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
 
 - `[openaistream]`
 - `[openai]`
 - `[audio]`
+- `[wifi]`
 
 Note: audio capture and transcription internals were extracted to `src/uvoiced` for reuse across projects.
 
@@ -295,12 +374,19 @@ metadata(
 package("assistant", base_path="./src")
 ```
 
+<<<<<<< HEAD
 To package `uvoiced` through `mip` as well, add:
 
 ```python
+=======
+To package additional modules, add entries in `manifest.py`, for example:
+
+```python
+package("ullmtools", base_path="./src")
+>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
 package("uvoiced", base_path="./src")
 ```
 
 ## Status
 
-The project is under active development and follows a reusable library layout with clear separation between framework code and runnable examples.
+The project is under active development with a reusable package-first layout and runnable examples for integration testing on embedded hardware.

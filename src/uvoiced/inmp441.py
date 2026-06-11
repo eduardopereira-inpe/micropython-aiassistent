@@ -48,7 +48,28 @@ import struct
 import time
 from machine import I2S, Pin
 
+<<<<<<<< HEAD:src/uvoiced/inmp441.py
 from .microphoneinterface import MicrophoneInterface
+========
+def calculate_median(data):
+    # Sort the data in ascending order
+    sorted_data = sorted(data)
+    n = len(sorted_data)
+    
+    # Check if the list is empty
+    if n == 0:
+        raise ValueError("The list cannot be empty.")
+        
+    mid = n // 2
+    
+    # If odd, return the middle element
+    if n % 2 != 0:
+        return sorted_data[mid]
+        
+    # If even, return the average of the two middle elements
+    return (sorted_data[mid - 1] + sorted_data[mid]) / 2
+
+>>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d:src/assistant/audio/i2s_microphone.py
 
 class INMP441(MicrophoneInterface):
     """Capture mono audio from an INMP441 microphone over I2S.
@@ -185,6 +206,11 @@ class INMP441(MicrophoneInterface):
                 self._is_above_background = False
         else:
             self._is_above_background = False
+            
+        
+#         median_val = calculate_median(filtered_samples)
+#         print(f"[MIC] median: {median_val}")
+
 
         return memoryview(self.pcm_buffer)[:idx]
 
@@ -196,3 +222,56 @@ class INMP441(MicrophoneInterface):
 
 
 
+<<<<<<<< HEAD:src/uvoiced/inmp441.py
+========
+    SAMPLE_RATE = 16000 //2
+    RECORD_SECONDS = 5
+
+    OUTPUT_FILE = "test.wav"
+
+    mic = INMP441Microphone(
+
+        sample_rate=SAMPLE_RATE,
+
+        sck_pin=32,
+        ws_pin=25,
+        sd_pin=33
+    )
+
+    print("Recording...")
+
+    total_pcm_bytes = 0
+    ignore_chunck = 2
+    count = 0
+
+    try:
+        with open(OUTPUT_FILE, "wb") as f:
+            f.seek(44)
+
+            start = time.time()
+
+            while (
+                time.time() - start <
+                RECORD_SECONDS
+            ):
+                chunk = mic.read_pcm16(record_mode=False)
+
+                if chunk:
+                    total_pcm_bytes += f.write(chunk)
+
+            f.seek(0)
+
+            write_wav_header(
+                file=f,
+                sample_rate=SAMPLE_RATE,
+                pcm_size=total_pcm_bytes
+            )
+    finally:
+        mic.close()
+
+    print("Done.")
+
+    print("PCM bytes:", total_pcm_bytes)
+
+    print("Saved:", OUTPUT_FILE)
+>>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d:src/assistant/audio/i2s_microphone.py

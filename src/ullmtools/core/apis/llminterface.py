@@ -37,6 +37,7 @@ class LLMInterface:
     
     def chat(
             self,
+<<<<<<< HEAD
             prompt,
             system_prompt=(
                 "You are a helpful assistant."
@@ -44,12 +45,48 @@ class LLMInterface:
             max_tokens=100,
             temperature=0.7,
             stream=False,
+=======
+            prompt: str,
+            system_prompt: str = (
+                "You are a helpful assistant."
+            ),
+            max_tokens: int = 100,
+            temperature: float = 0.7,
+            stream: bool = False,
+>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
             callback=None,
             tools=None
         ):
         raise NotImplementedError(
             "Subclasses must implement the chat method to interact with specific LLMs and tools."
         )
+<<<<<<< HEAD
+=======
+    
+    async def chat_async(
+        self,
+        prompt: str,
+        system_prompt: str = (
+            "You are a helpful assistant."
+        ),
+        max_tokens: int = 100,
+        temperature: float = 0.7,
+        stream: bool = False,
+        callback=None,
+        tools=None
+    ):
+        response = self.chat(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            stream=stream,
+            callback=callback,
+            tools=tools
+        )
+
+        return response
+>>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
 
     def clear_history(self):
 
