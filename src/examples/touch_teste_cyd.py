@@ -39,6 +39,7 @@ while True:
     if pos:
 
         x, y = pos
+        x = (display.width -1) - x  # inverte o eixo X para coincidir com a orientação do display
         
 
         # evita redesenhar o mesmo ponto
