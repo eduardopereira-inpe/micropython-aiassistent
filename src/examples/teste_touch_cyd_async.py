@@ -1,15 +1,15 @@
-from machine import Pin, SPI
 from udisplay.cyd import CYD
 from udisplay.ili9341 import color565
-import time
+import uasyncio as asyncio
 
-# -------------------------
-# DISPLAY
-# -------------------------
-
-cyd = CYD(display_width=240, display_height=320, rotation=90)
+cyd = CYD(
+    display_width=240,
+    display_height=320,
+    rotation=90
+)
 
 display = cyd.display
+
 display.clear(color565(0, 0, 0))
 
 display.draw_text8x8(
@@ -19,28 +19,15 @@ display.draw_text8x8(
     color565(255, 255, 255)
 )
 
-# -------------------------
-# TOUCH
-# -------------------------
+async def touch_loop():
 
-touch = cyd.touch
+    last_x = -100
+    last_y = -100
 
-# -------------------------
-# LOOP
-# -------------------------
+    while True:
 
-last_x = -1
-last_y = -1
+        x, y = await cyd.touch.wait_touch()
 
-while True:
-
-    pos = cyd.touches()
-
-    if pos:
-
-        x, y = pos        
-
-        # evita redesenhar o mesmo ponto
         if abs(x - last_x) > 2 or abs(y - last_y) > 2:
 
             print("Touch:", x, y)
@@ -55,4 +42,4 @@ while True:
             last_x = x
             last_y = y
 
-    time.sleep_ms(20)
+asyncio.run(touch_loop())

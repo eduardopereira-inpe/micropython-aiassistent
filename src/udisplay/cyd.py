@@ -107,6 +107,7 @@ from machine import Pin, SPI, ADC, PWM, SDCard, SoftSPI
 import network
 import os
 import time
+import uasyncio as asyncio
 
 class CYD(object):
     ######################################################
@@ -237,7 +238,8 @@ class CYD(object):
         if wifi_ssid is not None:
             print("Connecting to wifi...")
             self.wifi_connect(wifi_ssid, wifi_password)             # connect to WLAN Network
-        
+        self._touch_event = asyncio.Event()
+        self._touch_queue = []
         print("CYD ready...")
 
     @property
@@ -248,33 +250,45 @@ class CYD(object):
     #   Touchscreen Press Event
     ######################################################
     def _touch_handler(self, x, y):
-        '''
-        Interrupt Handler
-        This function is called each time the screen is touched.
-        '''
-        # X needs to be flipped
+        """
+        Callback chamado pelo driver Touch.
+        """
         x = (self.display.width - 1) - x
 
         self._x = x
         self._y = y
 
-        #print("Touch:", x, y)
+        self._touch_queue.append((x, y))
+
+        try:
+            self._touch_event.set()
+        except:
+            pass
 
     def touches(self):
-        '''
-        Returns last stored touch data.
+        if self._touch_queue:
+            return self._touch_queue.pop(0)
 
-        Return:
-            x: x coordinate of finger 1
-            y: y coordinate of finger 1
-        '''
-        x = self._x
-        y = self._y
+        return None
 
-        self._x = 0
-        self._y = 0
+    async def wait_touch(self):
+        """
+        Aguarda proximo toque.
+        """
 
-        return x, y
+        while not self._touch_queue:
+
+            self._touch_event.clear()
+
+            await self._touch_event.wait()
+
+        return self._touch_queue.pop(0)
+
+    async def touch_stream(self):
+
+        while True:
+
+            yield await self.wait_touch()
 
     def double_tap(self, x, y, error_margin = 10):
         '''
@@ -380,6 +394,19 @@ class CYD(object):
         time.sleep_ms(duration)
         self.speaker_pwm.duty(0)                # Turn off speaker by resetting gain to zero
 
+    async def play_tone_async(self, freq, duration, gain=0):
+
+        self.speaker_pwm.freq(freq)
+
+        if gain == 0:
+            gain = self.speaker_gain
+
+        self.speaker_pwm.duty(gain)
+
+        await asyncio.sleep_ms(duration)
+
+        self.speaker_pwm.duty(0)
+
     ######################################################
     #   SD Card
     ######################################################
@@ -431,6 +458,28 @@ class CYD(object):
         while not self.wifi.isconnected():
             pass
         print('network config:', self.wifi_ip())    # Get the interface's IPv4 addresses
+
+    async def wifi_connect_async(self, ssid, password, timeout_ms=15000):
+
+        self.wifi = network.WLAN(network.STA_IF)
+
+        self.wifi.active(True)
+
+        self.wifi.config(reconnects=3)
+
+        self.wifi.connect(ssid, password)
+
+        start = time.ticks_ms()
+
+        while not self.wifi.isconnected():
+
+            if time.ticks_diff(time.ticks_ms(), start) > timeout_ms:
+
+                return False
+
+            await asyncio.sleep_ms(100)
+
+        return True
         
     def wifi_isconnected(self):
         '''
@@ -484,7 +533,50 @@ class CYD(object):
             self.RGBg.value(1)
             self.RGBb.value(1)
         else:
-            self.rgb(0,0,0)
+            self.rgb((0, 0, 0))
         self.tft_bl.value(0)
         self.display.cleanup()
         print("========== Goodbye ==========")
+
+    async def shutdown_async(self):
+
+        self.display.fill_rectangle(
+            0,
+            0,
+            self.display.width - 1,
+            self.display.height - 1,
+            self.BLACK
+        )
+
+        self.display.draw_rectangle(
+            2,
+            2,
+            self.display.width - 5,
+            self.display.height - 5,
+            self.RED
+        )
+
+        self.display.draw_text8x8(
+            self.display.width // 2 - 52,
+            self.display.height // 2 - 4,
+            "Shutting Down",
+            self.WHITE,
+            background=self.BLACK
+        )
+
+        await asyncio.sleep(2)
+
+        self.unmount_sd()
+
+        self.speaker_pwm.deinit()
+
+        if self._rgb_pmw is False:
+            self.RGBr.value(1)
+            self.RGBg.value(1)
+            self.RGBb.value(1)
+        else:
+            self.rgb((0, 0, 0))
+
+        self.tft_bl.value(0)
+
+        self.display.cleanup()
