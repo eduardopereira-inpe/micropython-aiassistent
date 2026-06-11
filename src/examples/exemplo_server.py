@@ -213,11 +213,7 @@ class AssistantWebApp:
         self.llm.register_tool(tool=weather_tool)
         self.llm.register_tool(tool=led_tool)
 
-<<<<<<< HEAD
         asyncio.create_task(
-=======
-        self.scheduler_task = asyncio.create_task(
->>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
             self.scheduler.run()
         )
 
@@ -225,11 +221,7 @@ class AssistantWebApp:
 
         await self.setup_llm(api_key)
 
-<<<<<<< HEAD
         asyncio.create_task(
-=======
-        self.assistant_task = asyncio.create_task(
->>>>>>> c506c1ca3c3608909265889c535259ca9fb35f8d
             self.assistant_loop()
         )
 
