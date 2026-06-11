@@ -143,7 +143,14 @@ class CYD(object):
         cyd.wifi_create_ap(_ssid)                       # Creates an Access Point (AP) WLAN network.
         cyd.shutdown()                                  # Safely shutdown CYD device.
     '''
-    def __init__(self, rgb_pmw=False, speaker_gain=512, display_width=240, display_height=320, wifi_ssid = None, wifi_password = None):
+    def __init__(self, 
+                 rgb_pmw=False, 
+                 speaker_gain=512, 
+                 display_width=240, 
+                 display_height=320,
+                 rotation=90, 
+                 wifi_ssid = None, 
+                 wifi_password = None):
         '''
         Initialize CDYc
 
@@ -157,8 +164,22 @@ class CYD(object):
             display_height (Default = 320): Reset if needed.
         '''
         # Display
-        hspi = SPI(1, baudrate=40000000, sck=Pin(14), mosi=Pin(13))
-        self.display = Display(hspi, dc=Pin(2), cs=Pin(15), rst=Pin(0), width=display_width, height=display_height)
+        hspi = SPI(
+            1,
+            baudrate=40000000,
+            sck=Pin(14),
+            mosi=Pin(13),
+            miso=Pin(12)
+        )
+        self.display = Display(
+            hspi, 
+            cs=Pin(15, Pin.OUT),
+            dc=Pin(2, Pin.OUT),
+            rst=Pin(27, Pin.OUT),
+            width=display_width, 
+            height=display_height,
+            rotation=rotation
+        )
         self._x = 0
         self._y = 0
 
@@ -168,8 +189,21 @@ class CYD(object):
 
         # Touch
         self.last_tap = (-1,-1)
-        sspi = SoftSPI(baudrate=500000, sck=Pin(25), mosi=Pin(32), miso=Pin(39))
-        self._touch = Touch(sspi, cs=Pin(33), int_pin=Pin(36), int_handler=self._touch_handler)
+        sspi = SPI(
+            2,
+            baudrate=1000000,
+            sck=Pin(25),
+            mosi=Pin(32),
+            miso=Pin(39)
+        )
+        self._touch = Touch(
+            sspi,
+            cs=Pin(33, Pin.OUT),
+            width=display_width,
+            height=display_height,
+            int_pin=Pin(36), 
+            int_handler=self._touch_handler
+        )
 
         # Boot Button
         self._button_boot = Pin(0, Pin.IN)
@@ -205,6 +239,10 @@ class CYD(object):
             self.wifi_connect(wifi_ssid, wifi_password)             # connect to WLAN Network
         
         print("CYD ready...")
+
+    @property
+    def touch(self):
+        return self._touch
         
     ######################################################
     #   Touchscreen Press Event
