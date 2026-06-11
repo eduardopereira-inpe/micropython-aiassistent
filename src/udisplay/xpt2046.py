@@ -112,7 +112,6 @@ class Touch(object):
         x = int(self.x_multiplier * x + self.x_add)
         y = int(self.y_multiplier * y + self.y_add)
 
-        x = self.width - 1 - x  # Invert X axis
         return x, y
 
     def raw_touch(self):
