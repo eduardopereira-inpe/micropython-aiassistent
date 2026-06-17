@@ -76,7 +76,7 @@ async def main():
         )
 
     get_weather = GetWeatherTool()
-    turn_onoff_led = TurnOnOffLedTool(pin=23)
+    turn_onoff_led = TurnOnOffLedTool(pin=48)
 
 
     llm.register_tool(tool=schedule_event_tool)

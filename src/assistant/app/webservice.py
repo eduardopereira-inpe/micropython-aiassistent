@@ -14,102 +14,135 @@ from ullmtools.core.apis.llminterface import LLMInterface
 
 
 def render_template(filename, context):
+
     with open(filename, "r") as f:
         html = f.read()
 
     for key, value in context.items():
-        html = html.replace("{{" + key + "}}", str(value))
+        html = html.replace(
+            "{{" + key + "}}",
+            str(value)
+        )
 
     return html
+
 
 class WebService:
 
     llm: "LLMInterface"
 
-    def __init__(self, template_path="./templates/index.html"):
+    def __init__(
+        self,
+        template_path="./templates/index.html"
+    ):
 
         self.last_question = ""
-        self.last_response = "Nenhuma pergunta enviada."
+        self.last_response = (
+            "Nenhuma pergunta enviada."
+        )
 
         self.system_prompt = ""
 
-        self.queue = []
-
         self.scheduler = None
 
-        self.is_processing = False
-
-        self.template_path = template_path
+        self.template_path = (
+            template_path
+        )
 
     def decode_url(self, text):
-        text = text.replace("+", " ")
+
+        text = text.replace(
+            "+",
+            " "
+        )
+
         encoded_bytes = bytearray()
+
         i = 0
-        
+
         while i < len(text):
-            if text[i] == '%' and i + 2 < len(text):
+
+            if (
+                text[i] == "%"
+                and i + 2 < len(text)
+            ):
+
                 try:
-                    # Tenta converter o código hexadecimal
-                    encoded_bytes.append(int(text[i+1:i+3], 16))
+
+                    encoded_bytes.append(
+                        int(
+                            text[i + 1:i + 3],
+                            16
+                        )
+                    )
+
                     i += 3
+
                     continue
+
                 except ValueError:
+
                     pass
-            
-            # Adiciona o caractere normal
-            encoded_bytes.append(ord(text[i]))
+
+            encoded_bytes.extend(
+                text[i].encode("utf-8")
+            )
+
             i += 1
-            
-        # Decodifica tudo junto como utf-8
-        return encoded_bytes.decode('utf-8')
+
+        return encoded_bytes.decode(
+            "utf-8"
+        )
 
     def build_html(self):
-        return  render_template(
-            self.template_path, {
-                "QUESTION": self.last_question,
-                "ANSWER": self.last_response
+
+        return render_template(
+            self.template_path,
+            {
+                "QUESTION":
+                    self.last_question,
+                "ANSWER":
+                    self.last_response
             }
         )
 
-    def enqueue_message(self, text):
-        self.queue.append(text)
+    async def process_message(
+        self,
+        text
+    ):
 
-    async def assistant_loop(self):
+        self.last_question = text
 
-        while True:
+        try:
 
-            if self.queue:
-
-                self.is_processing = True
-
-                prompt = self.queue.pop(0)
-
-                self.last_question = prompt
-
-                try:
-
-                    response = await self.llm.chat_async(
-                        prompt=prompt,
-                        system_prompt=self.system_prompt,
-                        tools=self.llm.get_tools_schema()
+            response = self.llm.chat(
+                    prompt=text,
+                    system_prompt=(
+                        self.system_prompt
+                    ),
+                    tools=(
+                        self.llm
+                        .get_tools_schema()
                     )
+                )
+            
 
-                    self.last_response = response.get(
-                        "response",
-                        "Resposta vazia."
-                    )
+            self.last_response = (
+                response.get(
+                    "response",
+                    "Resposta vazia."
+                )
+            )
 
-                except Exception as e:
+        except Exception as e:
 
-                    self.last_response = "Erro: {}".format(e)
+            self.last_response = (
+                "Erro: {}".format(e)
+            )
 
-                finally:
+        finally:
 
-                    gc.collect()
-
-                    self.is_processing = False
-
-            await asyncio.sleep(0.1)
+            gc.collect()
 
     async def web_server(self):
 
@@ -124,19 +157,25 @@ class WebService:
             1
         )
 
-        server.bind(("", 80))
+        server.bind(
+            ("", 80)
+        )
 
         server.listen(3)
 
         server.setblocking(False)
 
-        print("Servidor HTTP iniciado")
+        print(
+            "Servidor HTTP iniciado"
+        )
 
         while True:
 
             try:
 
-                conn, addr = server.accept()
+                conn, addr = (
+                    server.accept()
+                )
 
             except OSError:
 
@@ -146,9 +185,11 @@ class WebService:
 
             try:
 
-                conn.settimeout(2.0)
+                conn.settimeout(30)
 
-                request = conn.recv(2048)
+                request = conn.recv(
+                    4096
+                )
 
                 if not request:
 
@@ -157,14 +198,16 @@ class WebService:
                     continue
 
                 request = request.decode(
-                    "utf-8",
-                    errors="replace"
+                    "utf-8"
                 )
 
-                if "GET /favicon.ico" in request:
+                if (
+                    "GET /favicon.ico"
+                    in request
+                ):
 
-                    conn.send(
-                        "HTTP/1.1 404 Not Found\r\n\r\n"
+                    conn.sendall(
+                        b"HTTP/1.1 404 Not Found\r\n\r\n"
                     )
 
                     conn.close()
@@ -181,37 +224,68 @@ class WebService:
 
                         body = parts[1]
 
-                        if "msg=" in body:
+                        if (
+                            "msg="
+                            in body
+                        ):
 
-                            text = body.split(
-                                "msg="
-                            )[1]
+                            text = (
+                                body.split(
+                                    "msg="
+                                )[1]
+                            )
 
-                            text = self.decode_url(
+                            if "&" in text:
+                                text = (
+                                    text.split(
+                                        "&"
+                                    )[0]
+                                )
+
+                            text = (
+                                self.decode_url(
+                                    text
+                                )
+                            )
+
+                            print(
+                                "Pergunta:",
                                 text
                             )
 
-                            self.enqueue_message(
+                            #
+                            # AGUARDA A RESPOSTA
+                            #
+                            await self.process_message(
                                 text
+                            )
+
+                            print(
+                                "Resposta pronta"
                             )
 
                 html = self.build_html()
 
-                conn.send(
+                body = html.encode(
+                    "utf-8"
+                )
+
+                headers = (
                     "HTTP/1.1 200 OK\r\n"
-                )
-
-                conn.send(
                     "Content-Type: text/html; charset=utf-8\r\n"
-                )
-
-                conn.send(
+                    "Content-Length: {}\r\n"
                     "Connection: close\r\n\r\n"
+                ).format(
+                    len(body)
                 )
 
                 conn.sendall(
-                    html.encode("utf-8")
+                    headers.encode(
+                        "utf-8"
+                    )
                 )
+
+                conn.sendall(body)
 
             except Exception as e:
 
@@ -238,9 +312,13 @@ class WebService:
 
         self.llm = llm
 
-        self.scheduler = scheduler
+        self.scheduler = (
+            scheduler
+        )
 
-        self.system_prompt = system_prompt
+        self.system_prompt = (
+            system_prompt
+        )
 
         self.llm.set_scheduler(
             self.scheduler
@@ -260,13 +338,9 @@ class WebService:
         self.setup_llm(
             llm=llm,
             scheduler=scheduler,
-            system_prompt=system_prompt
-        )
-
-        asyncio.create_task(
-            self.assistant_loop()
+            system_prompt=(
+                system_prompt
+            )
         )
 
         await self.web_server()
-
-
