@@ -21,6 +21,10 @@ class MicrophoneManager:
         self,
         sample_rate: int = 16000,
         mic_ibuf: int = 16384,
+        sck_pin: int = 32,
+        ws_pin: int = 25,
+        sd_pin: int = 33,
+        i2s_id: int = 0,
         verbose: bool = False
     ) -> None:
         """Initialize microphone manager configuration.
@@ -28,11 +32,19 @@ class MicrophoneManager:
         Args:
             sample_rate: Audio sample rate in Hz used by INMP441.
             mic_ibuf: Internal I2S buffer size in bytes.
+            sck_pin: I2S serial clock (SCK/BCLK) pin.
+            ws_pin: I2S word select (WS/LRCLK) pin.
+            sd_pin: I2S serial data input pin.
+            i2s_id: I2S peripheral id.
             verbose: Enables debug logging when True.
         """
 
         self.sample_rate = sample_rate
         self.mic_ibuf = mic_ibuf
+        self.sck_pin = sck_pin
+        self.ws_pin = ws_pin
+        self.sd_pin = sd_pin
+        self.i2s_id = i2s_id
         self._microphone = None
         self.verbose = verbose
 
@@ -65,10 +77,10 @@ class MicrophoneManager:
 
         self._microphone = INMP441(
             sample_rate=self.sample_rate,
-            sck_pin=32,
-            ws_pin=25,
-            sd_pin=33,
-            i2s_id=0,
+            sck_pin=self.sck_pin,
+            ws_pin=self.ws_pin,
+            sd_pin=self.sd_pin,
+            i2s_id=self.i2s_id,
             ibuf=self.mic_ibuf
         )
 

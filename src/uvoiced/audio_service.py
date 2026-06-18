@@ -48,6 +48,10 @@ class AudioService:
         output_file: str = "test.wav",
         mic_ibuf: int = 16384,
         sample_rate=16000 // 2, 
+        sck_pin: int = 32,
+        ws_pin: int = 25,
+        sd_pin: int = 33,
+        i2s_id: int = 0,
         delete_wav_after_transcription: bool = True,
         verbose: bool = False
     ) -> None:
@@ -60,6 +64,10 @@ class AudioService:
             output_file: Path to the temporary WAV output file.
             mic_ibuf: Internal microphone buffer size in bytes.
             sample_rate: Audio capture sample rate in Hz used by the microphone manager.
+            sck_pin: I2S serial clock (SCK/BCLK) pin.
+            ws_pin: I2S word select (WS/LRCLK) pin.
+            sd_pin: I2S serial data input pin.
+            i2s_id: I2S peripheral id.
             delete_wav_after_transcription: Whether to delete the WAV file after transcription.
             verbose: Enables diagnostic logging when True.
         """
@@ -72,7 +80,11 @@ class AudioService:
         self.microphone_manager = MicrophoneManager(
             sample_rate=sample_rate, 
             verbose=verbose,
-            mic_ibuf=mic_ibuf
+            mic_ibuf=mic_ibuf,
+            sck_pin=sck_pin,
+            ws_pin=ws_pin,
+            sd_pin=sd_pin,
+            i2s_id=i2s_id,
         )
 
         self.voice_activity_detector = VoiceActivityDetector(
